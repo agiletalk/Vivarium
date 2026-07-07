@@ -53,6 +53,7 @@ final class VivariumStore {
     @ObservationIgnored private var saveTask: Task<Void, Never>?
     @ObservationIgnored private var bannerTask: Task<Void, Never>?
     @ObservationIgnored private var lastPeriodicSave = Date.distantPast
+    @ObservationIgnored private var lastReconcile = Date.distantPast
     @ObservationIgnored private var demoActive = false
 
     private static let hasSeenRealEventKey = "hasSeenRealEvent"
@@ -212,6 +213,12 @@ final class VivariumStore {
 
         if now.timeIntervalSince(lastPeriodicSave) > 60 {
             saveNow()
+        }
+        // Self-heal: periodically re-sync the whole world into the scene so any dropped diff
+        // (or a scene that attached late) converges to truth.
+        if isAquariumVisible, now.timeIntervalSince(lastReconcile) > 10 {
+            lastReconcile = now
+            onReconcile?(state)
         }
         refreshMode()
     }

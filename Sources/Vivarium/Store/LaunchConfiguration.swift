@@ -5,6 +5,7 @@ struct LaunchConfiguration: Sendable {
     var forceDemo: Bool
     var qaOpenAquarium: Bool
     var stateFileOverride: URL?
+    var snapshotPath: String?
 
     static func fromProcess(
         arguments: [String] = CommandLine.arguments,
@@ -12,6 +13,7 @@ struct LaunchConfiguration: Sendable {
     ) -> LaunchConfiguration {
         var forceDemo = arguments.contains("--vivarium-demo")
         var stateFile: URL?
+        var snapshotPath: String?
 
         if let index = arguments.firstIndex(of: "--vivarium-state-file"),
            arguments.indices.contains(index + 1) {
@@ -20,6 +22,10 @@ struct LaunchConfiguration: Sendable {
         if stateFile == nil, let path = environment["VIVARIUM_STATE_FILE"], !path.isEmpty {
             stateFile = URL(fileURLWithPath: path)
         }
+        if let index = arguments.firstIndex(of: "--vivarium-snapshot"),
+           arguments.indices.contains(index + 1) {
+            snapshotPath = arguments[index + 1]
+        }
         if environment["VIVARIUM_DEMO"] == "1" {
             forceDemo = true
         }
@@ -27,7 +33,8 @@ struct LaunchConfiguration: Sendable {
         return LaunchConfiguration(
             forceDemo: forceDemo,
             qaOpenAquarium: arguments.contains("--qa-open-aquarium"),
-            stateFileOverride: stateFile
+            stateFileOverride: stateFile,
+            snapshotPath: snapshotPath
         )
     }
 }

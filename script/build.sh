@@ -106,39 +106,31 @@ case "$MODE" in
     /usr/bin/log stream --info --style compact --predicate "subsystem == \"$BUNDLE_ID\""
     ;;
   --verify|verify)
+    # Renders the scene straight to PNG via the app's --vivarium-snapshot flag, so verification
+    # needs no Screen Recording (TCC) permission. Demo mode fills the tank deterministically.
     SCRATCH="$(mktemp -d /tmp/vivarium-verify.XXXXXX)"
     STATE_FILE="$SCRATCH/state.json"
-    open_app --args --qa-open-aquarium --vivarium-demo --vivarium-state-file "$STATE_FILE"
-    sleep 4
-    pgrep -x "$APP_NAME" >/dev/null || { echo "FAIL: process not running" >&2; exit 1; }
-    echo "OK: process running"
-
-    WIN_ID="$(swift "$ROOT_DIR/script/windowid.swift" "$APP_NAME" || true)"
-    if [[ -n "$WIN_ID" ]]; then
-      SHOT="$SCRATCH/verify.png"
-      if screencapture -x -l "$WIN_ID" "$SHOT" 2>/dev/null && [[ -s "$SHOT" ]]; then
-        SIZE=$(stat -f%z "$SHOT")
-        if [[ "$SIZE" -gt 20000 ]]; then
-          echo "OK: screenshot $SHOT ($SIZE bytes)"
-        else
-          echo "WARN: screenshot suspiciously small ($SIZE bytes): $SHOT" >&2
-        fi
+    SHOT="$SCRATCH/verify.png"
+    open_app --args --vivarium-demo --vivarium-snapshot "$SHOT" --vivarium-state-file "$STATE_FILE"
+    # The app renders for ~7s, writes the PNG, then self-terminates.
+    for _ in $(seq 1 20); do
+      [[ -s "$SHOT" ]] && break
+      sleep 1
+    done
+    if [[ -s "$SHOT" ]]; then
+      SIZE=$(stat -f%z "$SHOT")
+      if [[ "$SIZE" -gt 20000 ]]; then
+        echo "OK: scene snapshot $SHOT ($SIZE bytes)"
       else
-        echo "WARN: screencapture failed (Screen Recording permission?)" >&2
+        echo "FAIL: snapshot suspiciously small ($SIZE bytes)" >&2
+        exit 1
       fi
     else
-      echo "FAIL: aquarium window not found" >&2
-      pkill -x "$APP_NAME" || true
+      echo "FAIL: no snapshot produced" >&2
+      pkill -x "$APP_NAME" 2>/dev/null || true
       exit 1
     fi
-
-    sleep 3
-    if [[ -s "$STATE_FILE" ]]; then
-      echo "OK: state file written"
-    else
-      echo "WARN: state file not written yet (demo mode suppresses persistence)" >&2
-    fi
-    pkill -x "$APP_NAME" || true
+    pkill -x "$APP_NAME" 2>/dev/null || true
     echo "verify passed — artifacts in $SCRATCH"
     ;;
   *)

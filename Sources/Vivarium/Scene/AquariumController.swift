@@ -50,4 +50,13 @@ final class AquariumController: AquariumHosting {
     func setRenderActive(_ active: Bool) {
         scene.setRenderActive(active)
     }
+
+    /// Renders the current scene contents straight to PNG data, bypassing screen capture
+    /// (and its Screen Recording permission). Used by the `--vivarium-snapshot` QA flag.
+    func snapshotPNG() -> Data? {
+        guard let texture = skView.texture(from: scene),
+              let cgImage = texture.cgImage() as CGImage? else { return nil }
+        let rep = NSBitmapImageRep(cgImage: cgImage)
+        return rep.representation(using: .png, properties: [:])
+    }
 }

@@ -22,6 +22,9 @@ protocol AquariumHosting: AnyObject {
 
     /// Reports spatial intents (`.foodEaten`, `.fishSelected`) up to the store.
     var onIntent: (@MainActor (SceneIntent) -> Void)? { get set }
+
+    /// Renders the current scene to PNG data without screen capture (QA snapshot).
+    func snapshotPNG() -> Data?
 }
 
 /// Builds the concrete SpriteKit controller. Implemented in the Scene module.

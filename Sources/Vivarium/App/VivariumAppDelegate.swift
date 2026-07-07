@@ -12,6 +12,7 @@ final class VivariumAppDelegate: NSObject, NSApplicationDelegate {
     let presenter = AquariumWindowPresenter()
 
     private let qaOpenAquarium: Bool
+    private let snapshotPath: String?
 
     override init() {
         let config = LaunchConfiguration.fromProcess()
@@ -30,6 +31,7 @@ final class VivariumAppDelegate: NSObject, NSApplicationDelegate {
         self.settings = SettingsStore()
         self.controller = makeAquariumController(initialState: store.state)
         self.qaOpenAquarium = config.qaOpenAquarium
+        self.snapshotPath = config.snapshotPath
 
         super.init()
         wireStoreToScene()
@@ -52,10 +54,23 @@ final class VivariumAppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.accessory)
         store.start()
 
-        if qaOpenAquarium {
+        if qaOpenAquarium || snapshotPath != nil {
             Task { [weak self] in
                 try? await Task.sleep(for: .milliseconds(800))
                 self?.openAquarium()
+            }
+        }
+
+        if let snapshotPath {
+            // Let the scene populate and animate, then dump a PNG and exit — no Screen
+            // Recording permission needed (renders the SKScene directly).
+            Task { [weak self] in
+                try? await Task.sleep(for: .seconds(7))
+                if let data = self?.controller.snapshotPNG() {
+                    try? data.write(to: URL(fileURLWithPath: snapshotPath))
+                }
+                try? await Task.sleep(for: .milliseconds(300))
+                NSApp.terminate(nil)
             }
         }
     }

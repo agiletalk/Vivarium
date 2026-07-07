@@ -50,6 +50,8 @@ final class AquariumScene: SKScene {
     private var lastUpdateTime: TimeInterval = 0
     private var isSetUp = false
     private var pendingState: EcosystemState?
+    /// Events delivered before `didMove` finished setup; flushed once the scene is ready.
+    private var pendingEvents: [EcosystemEvent] = []
 
     // Reused per-frame scratch to keep the update loop allocation-free.
     private var neighborScratch: [SIMD2<Double>] = []
@@ -63,6 +65,11 @@ final class AquariumScene: SKScene {
         if let pendingState {
             reconcile(with: pendingState)
             self.pendingState = nil
+        }
+        if !pendingEvents.isEmpty {
+            let buffered = pendingEvents
+            pendingEvents.removeAll()
+            for event in buffered { handle(event) }
         }
     }
 
@@ -123,7 +130,27 @@ final class AquariumScene: SKScene {
 
     override func didChangeSize(_ oldSize: CGSize) {
         guard isSetUp else { return }
+        let previousBounds = swimBounds
         layoutWorld()
+        // Fish spawned while the view was still at its tiny initial size would otherwise stay
+        // clustered in a corner once the window grows; remap them proportionally into the new area.
+        if previousBounds.width > 1, previousBounds.height > 1,
+           previousBounds.width != swimBounds.width || previousBounds.height != swimBounds.height {
+            remapFish(from: previousBounds, to: swimBounds)
+        }
+    }
+
+    private func remapFish(from old: MotionBounds, to new: MotionBounds) {
+        for node in fishNodes.values {
+            let fx = (node.steering.position.x - old.minX) / max(old.width, 1)
+            let fy = (node.steering.position.y - old.minY) / max(old.height, 1)
+            let position = SIMD2(
+                new.minX + min(max(fx, 0), 1) * new.width,
+                new.minY + min(max(fy, 0), 1) * new.height
+            )
+            node.steering.position = position
+            node.position = CGPoint(x: position.x, y: position.y)
+        }
     }
 
     // MARK: - Layout
@@ -292,7 +319,10 @@ final class AquariumScene: SKScene {
     // MARK: - Events
 
     func apply(events: [EcosystemEvent]) {
-        guard isSetUp else { return }
+        guard isSetUp else {
+            pendingEvents.append(contentsOf: events)
+            return
+        }
         for event in events { handle(event) }
     }
 
