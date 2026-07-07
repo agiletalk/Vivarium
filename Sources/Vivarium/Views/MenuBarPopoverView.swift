@@ -1,46 +1,12 @@
 import SwiftUI
 import VivariumCore
 
-/// The menu bar icon. Shows an active/idle fish glyph plus a count when more than one agent swims,
-/// with an optional gentle 1 Hz pulse (off by default) while agents are active.
-struct MenuBarLabel: View {
-    let store: VivariumStore
-    let settings: SettingsStore
-
-    var body: some View {
-        if settings.menuBarAnimation && store.hasActiveAgents {
-            TimelineView(.periodic(from: .now, by: 1.0)) { context in
-                content(opacity: pulse(at: context.date))
-            }
-        } else {
-            content(opacity: 1)
-        }
-    }
-
-    @ViewBuilder
-    private func content(opacity: Double) -> some View {
-        let count = store.activeFishCount
-        HStack(spacing: 2) {
-            Image(systemName: store.hasActiveAgents ? "fish.fill" : "fish")
-                .opacity(opacity)
-            if count > 1 {
-                Text("\(count)")
-            }
-        }
-    }
-
-    private func pulse(at date: Date) -> Double {
-        let t = date.timeIntervalSinceReferenceDate
-        return 0.55 + 0.45 * (0.5 + 0.5 * sin(t * .pi))
-    }
-}
-
-/// The `.window`-style popover: header summary, a live list of fish, and the action footer.
+/// The menu bar popover: header summary, a live list of fish, and the action footer.
 struct MenuBarPopoverView: View {
     let store: VivariumStore
     let onOpenAquarium: () -> Void
-
-    @Environment(\.openSettings) private var openSettings
+    var onOpenSettings: () -> Void = {}
+    var onQuit: () -> Void = { NSApp.terminate(nil) }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -51,6 +17,7 @@ struct MenuBarPopoverView: View {
             footer
         }
         .frame(width: 326)
+        .onAppear { DebugTrace.log("MenuBarPopover APPEARED fish=\(store.state.fish.count)") }
     }
 
     // MARK: - Header
@@ -136,16 +103,11 @@ struct MenuBarPopoverView: View {
             .controlSize(.large)
 
             HStack(spacing: 8) {
-                Button {
-                    openSettings()
-                    NSApp.activate(ignoringOtherApps: true)
-                } label: {
+                Button(action: onOpenSettings) {
                     Label("Settings…", systemImage: "gearshape")
                         .frame(maxWidth: .infinity)
                 }
-                Button {
-                    NSApp.terminate(nil)
-                } label: {
+                Button(action: onQuit) {
                     Label("Quit", systemImage: "power")
                         .frame(maxWidth: .infinity)
                 }

@@ -1,6 +1,9 @@
 import AppKit
+import OSLog
 import VivariumCore
 import VivariumDetect
+
+let vivariumLog = Logger(subsystem: "com.agiletalk.Vivarium", category: "lifecycle")
 
 /// Owns the store, settings, aquarium controller, and window presenter, and wires the store to the
 /// scene. Built in `init()` so all of them exist before SwiftUI first evaluates the scene bodies.
@@ -10,9 +13,11 @@ final class VivariumAppDelegate: NSObject, NSApplicationDelegate {
     let settings: SettingsStore
     let controller: any AquariumHosting
     let presenter = AquariumWindowPresenter()
+    private var menuBar: MenuBarController?
 
     private let qaOpenAquarium: Bool
     private let snapshotPath: String?
+    private let verifyPopoverPath: String?
 
     override init() {
         let config = LaunchConfiguration.fromProcess()
@@ -32,9 +37,12 @@ final class VivariumAppDelegate: NSObject, NSApplicationDelegate {
         self.controller = makeAquariumController(initialState: store.state)
         self.qaOpenAquarium = config.qaOpenAquarium
         self.snapshotPath = config.snapshotPath
+        self.verifyPopoverPath = config.verifyPopoverPath
 
         super.init()
         wireStoreToScene()
+        vivariumLog.log("AppDelegate.init done")
+        DebugTrace.log("AppDelegate.init done forceDemo=\(config.forceDemo) fish=\(self.store.state.fish.count)")
     }
 
     private func wireStoreToScene() {
@@ -52,7 +60,15 @@ final class VivariumAppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillFinishLaunching(_ notification: Notification) {
         // Menu-bar-only presence: no Dock icon, no app menu.
         NSApp.setActivationPolicy(.accessory)
+        vivariumLog.log("applicationWillFinishLaunching")
+        DebugTrace.log("applicationWillFinishLaunching policy=accessory")
         store.start()
+
+        menuBar = MenuBarController(
+            store: store,
+            onOpenAquarium: { [weak self] in self?.openAquarium() },
+            onOpenSettings: { Self.openSettingsWindow() }
+        )
 
         if qaOpenAquarium || snapshotPath != nil {
             Task { [weak self] in
@@ -73,6 +89,22 @@ final class VivariumAppDelegate: NSObject, NSApplicationDelegate {
                 NSApp.terminate(nil)
             }
         }
+
+        if let verifyPopoverPath {
+            // Programmatically open the menu bar popover and render it, proving click→popover works.
+            Task { [weak self] in
+                try? await Task.sleep(for: .seconds(3))
+                self?.menuBar?.showPopover()
+                try? await Task.sleep(for: .milliseconds(700))
+                let shown = self?.menuBar?.isPopoverShown ?? false
+                DebugTrace.log("verifyPopover: isShown=\(shown)")
+                if let data = self?.menuBar?.renderPopoverPNG() {
+                    try? data.write(to: URL(fileURLWithPath: verifyPopoverPath))
+                }
+                try? await Task.sleep(for: .milliseconds(300))
+                NSApp.terminate(nil)
+            }
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -81,5 +113,10 @@ final class VivariumAppDelegate: NSObject, NSApplicationDelegate {
 
     func openAquarium() {
         presenter.openAquarium(controller: controller, store: store)
+    }
+
+    static func openSettingsWindow() {
+        NSApp.activate(ignoringOtherApps: true)
+        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
     }
 }

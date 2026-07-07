@@ -6,6 +6,8 @@ struct LaunchConfiguration: Sendable {
     var qaOpenAquarium: Bool
     var stateFileOverride: URL?
     var snapshotPath: String?
+    /// QA: programmatically open the menu bar popover and render it to this PNG, then exit.
+    var verifyPopoverPath: String?
 
     static func fromProcess(
         arguments: [String] = CommandLine.arguments,
@@ -14,6 +16,7 @@ struct LaunchConfiguration: Sendable {
         var forceDemo = arguments.contains("--vivarium-demo")
         var stateFile: URL?
         var snapshotPath: String?
+        var verifyPopoverPath: String?
 
         if let index = arguments.firstIndex(of: "--vivarium-state-file"),
            arguments.indices.contains(index + 1) {
@@ -26,6 +29,10 @@ struct LaunchConfiguration: Sendable {
            arguments.indices.contains(index + 1) {
             snapshotPath = arguments[index + 1]
         }
+        if let index = arguments.firstIndex(of: "--vivarium-verify-popover"),
+           arguments.indices.contains(index + 1) {
+            verifyPopoverPath = arguments[index + 1]
+        }
         if environment["VIVARIUM_DEMO"] == "1" {
             forceDemo = true
         }
@@ -34,7 +41,8 @@ struct LaunchConfiguration: Sendable {
             forceDemo: forceDemo,
             qaOpenAquarium: arguments.contains("--qa-open-aquarium"),
             stateFileOverride: stateFile,
-            snapshotPath: snapshotPath
+            snapshotPath: snapshotPath,
+            verifyPopoverPath: verifyPopoverPath
         )
     }
 }
