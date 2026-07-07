@@ -14,6 +14,10 @@ let package = Package(
         .target(name: "VivariumDetect", dependencies: ["VivariumCore"]),
         .executableTarget(name: "Vivarium", dependencies: ["VivariumCore", "VivariumDetect"]),
         .testTarget(name: "VivariumCoreTests", dependencies: ["VivariumCore"]),
-        .testTarget(name: "VivariumDetectTests", dependencies: ["VivariumDetect"]),
+        .testTarget(
+            name: "VivariumDetectTests",
+            dependencies: ["VivariumDetect"],
+            resources: [.copy("Fixtures")]
+        ),
     ]
 )
