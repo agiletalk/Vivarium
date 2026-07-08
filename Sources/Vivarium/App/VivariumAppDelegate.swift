@@ -83,6 +83,9 @@ final class VivariumAppDelegate: NSObject, NSApplicationDelegate {
             // Recording permission needed (renders the SKScene directly).
             Task { [weak self] in
                 try? await Task.sleep(for: .seconds(7))
+                if let ctrl = self?.controller as? AquariumController {
+                    DebugTrace.log("snapshot positions: \(ctrl.debugFishPositions())")
+                }
                 if let data = self?.controller.snapshotPNG() {
                     try? data.write(to: URL(fileURLWithPath: snapshotPath))
                 }

@@ -18,7 +18,9 @@ final class AquariumController: AquariumHosting {
     }
 
     init(initialState: EcosystemState) {
-        let initialSize = CGSize(width: 480, height: 320)
+        // Start at the aquarium window's content size so fish spawn into correct bounds even before
+        // the view first lays out; .resizeFill + didChangeSize remapping handle any later resize.
+        let initialSize = CGSize(width: 1200, height: 760)
         skView = SKView(frame: CGRect(origin: .zero, size: initialSize))
         skView.autoresizingMask = [.width, .height]
         skView.ignoresSiblingOrder = true
@@ -53,6 +55,8 @@ final class AquariumController: AquariumHosting {
 
     /// Renders the current scene contents straight to PNG data, bypassing screen capture
     /// (and its Screen Recording permission). Used by the `--vivarium-snapshot` QA flag.
+    func debugFishPositions() -> String { scene.debugFishPositions() }
+
     func snapshotPNG() -> Data? {
         guard let texture = skView.texture(from: scene),
               let cgImage = texture.cgImage() as CGImage? else { return nil }

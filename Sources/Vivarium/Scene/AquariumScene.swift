@@ -453,6 +453,9 @@ final class AquariumScene: SKScene {
         let x = safeRandom(swimBounds.minX, swimBounds.maxX)
         let y = safeRandom(swimBounds.minY, swimBounds.maxY)
         let node = FishNode(state: state, textures: textures, position: CGPoint(x: x, y: y), rng: &rng)
+        // Place the node immediately so it renders at its spawn point even before the first
+        // update() tick (e.g. offscreen snapshot renders never run the update loop).
+        node.position = CGPoint(x: x, y: y)
         node.setSelected(state.id == selectedFishID)
         fishLayer.addChild(node)
         fishNodes[state.id] = node
@@ -649,5 +652,11 @@ final class AquariumScene: SKScene {
     private func safeRandom(_ lower: Double, _ upper: Double) -> Double {
         guard upper > lower else { return lower }
         return rng.double(in: lower..<upper)
+    }
+
+    func debugFishPositions() -> String {
+        "size=\(Int(size.width))x\(Int(size.height)) paused=\(isPaused) n=\(fishNodes.count) " +
+        fishNodes.values.map { "\($0.fishID.rawValue.suffix(6)):(\(Int($0.position.x)),\(Int($0.position.y)))" }
+            .joined(separator: " ")
     }
 }

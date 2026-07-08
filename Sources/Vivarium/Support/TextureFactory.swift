@@ -104,15 +104,19 @@ final class TextureFactory {
             let top = base.blended(withFraction: 0.35, of: .white) ?? base
             let bottom = base.blended(withFraction: 0.30, of: .black) ?? base
 
+            // Jellyfish read as soft, translucent creatures.
+            let bodyAlpha: CGFloat = species == .jellyfish ? 0.72 : 1.0
+
             ctx.saveGState()
             ctx.addPath(path)
             ctx.clip()
+            ctx.setAlpha(bodyAlpha)
             Self.fillVerticalGradient(ctx, rect: rect, top: top, bottom: bottom)
 
-            // Belly highlight.
-            let belly = CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: rect.height * 0.42)
-            ctx.setFillColor(NSColor(white: 1, alpha: 0.16).cgColor)
-            ctx.fill(belly)
+            // Soft belly lightening — a radial wash low and forward, no hard seam.
+            let bellyCenter = CGPoint(x: rect.minX + rect.width * 0.62, y: rect.minY + rect.height * 0.20)
+            Self.fillRadial(ctx, center: bellyCenter, radius: rect.width * 0.55,
+                            inner: NSColor(white: 1, alpha: 0.22), outer: NSColor(white: 1, alpha: 0))
 
             // Memory stripes (clipped to the body).
             let stripes = memory.sorted { $0.level > $1.level }.prefix(4)
@@ -126,12 +130,18 @@ final class TextureFactory {
                     y += bandH
                 }
             }
+
+            // Glossy specular highlight, high and forward.
+            ctx.setAlpha(bodyAlpha)
+            let glossCenter = CGPoint(x: rect.minX + rect.width * 0.60, y: rect.minY + rect.height * 0.78)
+            Self.fillRadial(ctx, center: glossCenter, radius: rect.width * 0.30,
+                            inner: NSColor(white: 1, alpha: 0.40), outer: NSColor(white: 1, alpha: 0))
             ctx.restoreGState()
 
             // Outline.
             ctx.addPath(path)
-            ctx.setStrokeColor(NSColor(white: legendary ? 1 : 0, alpha: legendary ? 0.6 : 0.22).cgColor)
-            ctx.setLineWidth(legendary ? 2 : 1.5)
+            ctx.setStrokeColor(NSColor(white: legendary ? 1 : 0, alpha: legendary ? 0.6 : 0.20).cgColor)
+            ctx.setLineWidth(legendary ? 2 : 1.4)
             ctx.strokePath()
         }
     }
@@ -144,17 +154,23 @@ final class TextureFactory {
             let base = legendary
                 ? NSColor(srgbRed: 1.0, green: 0.78, blue: 0.28, alpha: 1)
                 : (Self.accent(for: provider).blended(withFraction: 0.18, of: .black) ?? Self.accent(for: provider))
+            let w = rect.width, h = rect.height
+            func P(_ fx: CGFloat, _ fy: CGFloat) -> CGPoint {
+                CGPoint(x: rect.minX + w * fx, y: rect.minY + h * fy)
+            }
+            // Crescent fluke: joint at the right edge, two lobes with a notch on the outer (left) edge.
             let path = CGMutablePath()
-            // Fluke: joint at right edge (x = maxX), two lobes fanning to the left.
-            let jointX = rect.maxX
-            path.move(to: CGPoint(x: jointX, y: rect.midY))
-            path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
-            path.addQuadCurve(to: CGPoint(x: rect.minX, y: rect.minY),
-                              control: CGPoint(x: rect.minX + rect.width * 0.4, y: rect.midY))
+            path.move(to: P(1.0, 0.5))
+            path.addQuadCurve(to: P(0.0, 1.0), control: P(0.55, 0.98))     // joint → upper lobe tip
+            path.addQuadCurve(to: P(0.38, 0.5), control: P(0.14, 0.74))    // upper tip → center notch
+            path.addQuadCurve(to: P(0.0, 0.0), control: P(0.14, 0.26))     // notch → lower lobe tip
+            path.addQuadCurve(to: P(1.0, 0.5), control: P(0.55, 0.02))     // lower tip → joint
             path.closeSubpath()
             ctx.addPath(path)
-            ctx.setFillColor(base.cgColor)
-            ctx.fillPath()
+            ctx.clip()
+            Self.fillVerticalGradient(ctx, rect: rect,
+                                      top: base.blended(withFraction: 0.22, of: .white) ?? base,
+                                      bottom: base.blended(withFraction: 0.12, of: .black) ?? base)
         }
     }
 
@@ -410,68 +426,136 @@ final class TextureFactory {
 
     private static func bodyPath(_ species: FishSpecies, rect r: CGRect) -> CGPath {
         let path = CGMutablePath()
+        let w = r.width, h = r.height
+        // Fractional point helper: fx 0=tail(left)…1=head(right), fy 0=bottom…1=top.
+        func P(_ fx: CGFloat, _ fy: CGFloat) -> CGPoint {
+            CGPoint(x: r.minX + w * fx, y: r.minY + h * fy)
+        }
+
         switch species {
         case .whale:
-            path.addEllipse(in: r)
-            // Small dorsal bump.
-            path.move(to: CGPoint(x: r.midX - 8, y: r.maxY - 4))
-            path.addQuadCurve(to: CGPoint(x: r.midX + 8, y: r.maxY - 4),
-                              control: CGPoint(x: r.midX, y: r.maxY + 10))
+            // Fat rounded head at the right tapering to a slim caudal peduncle at the left.
+            path.move(to: P(0.03, 0.55))
+            path.addCurve(to: P(0.60, 0.97), control1: P(0.16, 0.90), control2: P(0.40, 0.99))
+            path.addCurve(to: P(0.99, 0.50), control1: P(0.82, 0.95), control2: P(1.03, 0.76))
+            path.addCurve(to: P(0.58, 0.05), control1: P(1.02, 0.26), control2: P(0.85, 0.05))
+            path.addCurve(to: P(0.03, 0.45), control1: P(0.34, 0.05), control2: P(0.14, 0.12))
+            path.addQuadCurve(to: P(0.03, 0.55), control: P(-0.05, 0.50))
             path.closeSubpath()
+            // Dorsal fin, swept back toward the tail.
+            path.move(to: P(0.44, 0.93))
+            path.addQuadCurve(to: P(0.60, 0.91), control: P(0.42, 1.20))
+            path.closeSubpath()
+            // Pectoral flipper on the lower front.
+            path.move(to: P(0.66, 0.22))
+            path.addQuadCurve(to: P(0.58, 0.03), control: P(0.52, 0.07))
+            path.addQuadCurve(to: P(0.66, 0.22), control: P(0.72, 0.11))
+            path.closeSubpath()
+
         case .dolphin:
-            path.addEllipse(in: r.insetBy(dx: 0, dy: r.height * 0.12))
-            // Pointed snout at right.
-            path.move(to: CGPoint(x: r.maxX - r.width * 0.18, y: r.midY + 6))
-            path.addLine(to: CGPoint(x: r.maxX + 4, y: r.midY))
-            path.addLine(to: CGPoint(x: r.maxX - r.width * 0.18, y: r.midY - 6))
+            // Streamlined body with a melon forehead and a pointed rostrum at the right.
+            path.move(to: P(0.04, 0.52))
+            path.addCurve(to: P(0.52, 0.90), control1: P(0.16, 0.78), control2: P(0.34, 0.92))
+            path.addCurve(to: P(0.86, 0.58), control1: P(0.66, 0.88), control2: P(0.80, 0.74))
+            path.addQuadCurve(to: P(1.00, 0.47), control: P(0.99, 0.58))
+            path.addQuadCurve(to: P(0.86, 0.39), control: P(0.99, 0.40))
+            path.addCurve(to: P(0.30, 0.10), control1: P(0.70, 0.20), control2: P(0.52, 0.10))
+            path.addQuadCurve(to: P(0.04, 0.44), control: P(0.12, 0.15))
+            path.addQuadCurve(to: P(0.04, 0.52), control: P(-0.04, 0.48))
             path.closeSubpath()
-            // Curved dorsal fin.
-            path.move(to: CGPoint(x: r.midX - 4, y: r.maxY - 8))
-            path.addQuadCurve(to: CGPoint(x: r.midX + 12, y: r.maxY - 6),
-                              control: CGPoint(x: r.midX + 2, y: r.maxY + 12))
+            // Sickle dorsal fin, swept back.
+            path.move(to: P(0.44, 0.85))
+            path.addQuadCurve(to: P(0.28, 1.14), control: P(0.30, 1.00))
+            path.addQuadCurve(to: P(0.56, 0.84), control: P(0.48, 1.00))
             path.closeSubpath()
+            // Pectoral fin.
+            path.move(to: P(0.58, 0.18))
+            path.addQuadCurve(to: P(0.46, -0.02), control: P(0.44, 0.06))
+            path.addQuadCurve(to: P(0.58, 0.18), control: P(0.62, 0.05))
+            path.closeSubpath()
+
         case .pufferfish:
-            path.addEllipse(in: r)
-            // Radial spikes.
-            let cx = r.midX, cy = r.midY, rad = min(r.width, r.height) * 0.5
-            for i in 0..<10 {
-                let a = Double(i) / 10 * 2 * .pi
-                let bx = cx + CGFloat(cos(a)) * rad * 0.85
-                let by = cy + CGFloat(sin(a)) * rad * 0.85
-                let tx = cx + CGFloat(cos(a)) * rad * 1.18
-                let ty = cy + CGFloat(sin(a)) * rad * 1.18
-                let px = cx + CGFloat(cos(a + 0.18)) * rad * 0.8
-                let py = cy + CGFloat(sin(a + 0.18)) * rad * 0.8
-                path.move(to: CGPoint(x: bx, y: by))
-                path.addLine(to: CGPoint(x: tx, y: ty))
-                path.addLine(to: CGPoint(x: px, y: py))
+            // Round inflated body ringed with neat, short spikes.
+            let bodyRect = r.insetBy(dx: w * 0.08, dy: h * 0.08)
+            let cx = bodyRect.midX, cy = bodyRect.midY
+            let rx = bodyRect.width * 0.5, ry = bodyRect.height * 0.5
+            path.addEllipse(in: bodyRect)
+            let n = 12
+            for i in 0..<n {
+                let a = Double(i) / Double(n) * 2 * .pi
+                let half = (2 * .pi / Double(n)) * 0.42
+                let base1 = CGPoint(x: cx + CGFloat(cos(a - half)) * rx, y: cy + CGFloat(sin(a - half)) * ry)
+                let base2 = CGPoint(x: cx + CGFloat(cos(a + half)) * rx, y: cy + CGFloat(sin(a + half)) * ry)
+                let tip = CGPoint(x: cx + CGFloat(cos(a)) * rx * 1.20, y: cy + CGFloat(sin(a)) * ry * 1.20)
+                path.move(to: base1)
+                path.addLine(to: tip)
+                path.addLine(to: base2)
                 path.closeSubpath()
             }
+            // Small tail-side fin flick.
+            path.move(to: P(0.60, 0.14))
+            path.addQuadCurve(to: P(0.48, 0.00), control: P(0.46, 0.06))
+            path.addQuadCurve(to: P(0.60, 0.14), control: P(0.62, 0.03))
+            path.closeSubpath()
+
         case .octopus:
-            // Mantle in the top portion.
-            let mantle = CGRect(x: r.minX, y: r.minY + r.height * 0.42,
-                                width: r.width, height: r.height * 0.58)
+            // Bulbous mantle up top with five tapering, gently curling arms below.
+            let mantle = CGRect(x: r.minX + w * 0.11, y: r.minY + h * 0.42,
+                                width: w * 0.78, height: h * 0.56)
             path.addEllipse(in: mantle)
-            // Four baked tentacles hanging below.
-            let legW = r.width * 0.18
-            for i in 0..<4 {
-                let lx = r.minX + r.width * (0.14 + 0.24 * Double(i))
-                path.addRoundedRect(in: CGRect(x: lx - legW / 2, y: r.minY,
-                                               width: legW, height: r.height * 0.52),
-                                    cornerWidth: legW / 2, cornerHeight: legW / 2)
+            let count = 5
+            let baseY = r.minY + h * 0.50
+            let armW = w * 0.11
+            for i in 0..<count {
+                let fx = 0.20 + 0.15 * CGFloat(i)
+                let sx = r.minX + w * fx
+                let dir: CGFloat = (i % 2 == 0) ? 1 : -1
+                let tip = CGPoint(x: sx + dir * w * 0.07, y: r.minY + h * 0.02)
+                path.move(to: CGPoint(x: sx - armW / 2, y: baseY))
+                path.addCurve(to: tip,
+                              control1: CGPoint(x: sx - armW * 0.9, y: r.minY + h * 0.22),
+                              control2: CGPoint(x: sx + dir * w * 0.12, y: r.minY + h * 0.10))
+                path.addCurve(to: CGPoint(x: sx + armW / 2, y: baseY),
+                              control1: CGPoint(x: sx + dir * w * 0.02, y: r.minY + h * 0.10),
+                              control2: CGPoint(x: sx + armW * 0.9, y: r.minY + h * 0.22))
+                path.closeSubpath()
             }
+
         case .jellyfish:
-            // Dome bell (upper half-ellipse).
-            let bell = CGRect(x: r.minX, y: r.midY, width: r.width, height: r.height * 0.5)
-            path.addEllipse(in: bell)
-            path.addRect(CGRect(x: r.minX, y: r.midY, width: r.width, height: r.height * 0.14))
-            // Wavy tentacles.
-            let tentW = r.width * 0.12
-            for i in 0..<4 {
-                let tx = r.minX + r.width * (0.2 + 0.2 * Double(i))
-                path.addRoundedRect(in: CGRect(x: tx - tentW / 2, y: r.minY,
-                                               width: tentW, height: r.height * 0.5),
-                                    cornerWidth: tentW / 2, cornerHeight: tentW / 2)
+            // Smooth dome bell with a scalloped hem and trailing wavy tentacles.
+            let bellTopY = r.minY + h * 0.98
+            let hemY = r.minY + h * 0.48
+            let leftX = r.minX + w * 0.05, rightX = r.maxX - w * 0.05
+            path.move(to: CGPoint(x: leftX, y: hemY))
+            path.addCurve(to: CGPoint(x: rightX, y: hemY),
+                          control1: CGPoint(x: r.minX + w * 0.00, y: bellTopY),
+                          control2: CGPoint(x: r.maxX - w * 0.00, y: bellTopY))
+            let scallops = 3
+            let segW = (rightX - leftX) / CGFloat(scallops)
+            for s in 0..<scallops {
+                let x0 = rightX - CGFloat(s) * segW
+                let x1 = x0 - segW
+                path.addQuadCurve(to: CGPoint(x: x1, y: hemY),
+                                  control: CGPoint(x: (x0 + x1) / 2, y: hemY - h * 0.11))
+            }
+            path.closeSubpath()
+            // Tentacles of varying length.
+            let tcount = 5
+            for i in 0..<tcount {
+                let fx = 0.22 + 0.14 * CGFloat(i)
+                let sx = r.minX + w * fx
+                let len = h * 0.28 + h * 0.16 * CGFloat((i * 3) % 4) / 3.0
+                let botY = hemY - len
+                let wob: CGFloat = (i % 2 == 0) ? 1 : -1
+                let ww = w * 0.028
+                path.move(to: CGPoint(x: sx - ww, y: hemY))
+                path.addCurve(to: CGPoint(x: sx, y: botY),
+                              control1: CGPoint(x: sx - ww - wob * w * 0.06, y: hemY - len * 0.5),
+                              control2: CGPoint(x: sx + wob * w * 0.06, y: botY + len * 0.18))
+                path.addCurve(to: CGPoint(x: sx + ww, y: hemY),
+                              control1: CGPoint(x: sx + wob * w * 0.06, y: botY + len * 0.18),
+                              control2: CGPoint(x: sx + ww - wob * w * 0.06, y: hemY - len * 0.5))
+                path.closeSubpath()
             }
         }
         return path
