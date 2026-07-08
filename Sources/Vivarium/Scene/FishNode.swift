@@ -320,6 +320,9 @@ final class FishNode: SKNode {
             CGPoint(x: bodySize.width * 0.24, y: bodySize.height * 0.14)
         case .octopus, .jellyfish:
             CGPoint(x: bodySize.width * 0.14, y: bodySize.height * 0.18)
+        case .seaTurtle:
+            // On the head, which pokes out toward the front-right.
+            CGPoint(x: bodySize.width * 0.44, y: 0)
         }
     }
 }

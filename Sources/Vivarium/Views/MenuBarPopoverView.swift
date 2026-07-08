@@ -249,6 +249,8 @@ extension AgentProvider {
         case .codex: .orange
         case .gemini: .purple
         case .cursor: .pink
+        case .opencode: .blue
+        case .copilot: .green
         case .gpt: .blue
         }
     }
@@ -259,6 +261,8 @@ extension AgentProvider {
         case .codex: "Cx"
         case .gemini: "Gm"
         case .cursor: "Cu"
+        case .opencode: "Oc"
+        case .copilot: "Cp"
         case .gpt: "G"
         }
     }

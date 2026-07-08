@@ -88,8 +88,9 @@ public actor DetectionCoordinator: AgentEventStreaming {
         for (provider, sample) in samples {
             // File-backed providers (claude/codex) get richer state from transcripts.
             guard !fileBackedProviders.contains(provider) else { continue }
-            // Only surface providers without a transcript source at all (gemini/cursor).
-            guard provider == .gemini || provider == .cursor else { continue }
+            // Only surface providers without a transcript source — detected purely by process scan.
+            guard provider == .gemini || provider == .cursor
+                    || provider == .opencode || provider == .copilot else { continue }
             if lastProviderLevel[provider] == sample.level { continue }
             lastProviderLevel[provider] = sample.level
             continuation.yield(.providerActivity(

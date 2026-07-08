@@ -55,11 +55,27 @@ public enum ProviderClassifier {
             return .codex
         case "gemini":
             return .gemini
+        case "opencode":
+            return .opencode
+        case "copilot":
+            // The GitHub Copilot CLI agent. Exclude the editor language server, which runs
+            // constantly and is not autonomous agent activity.
+            if args.contains("copilot-language-server") { return nil }
+            return .copilot
         case "node":
             if args.contains("@google/gemini-cli") || args.contains("/gemini.js") {
                 return .gemini
             }
+            if args.contains("@github/copilot") || args.contains("copilot/index") {
+                return .copilot
+            }
+            if args.contains("opencode") {
+                return .opencode
+            }
             return nil
+        case "gh":
+            // `gh copilot …` — GitHub CLI's Copilot extension.
+            return args.contains("copilot") ? .copilot : nil
         case "cursor-agent":
             // Exact basename only — never substring-match "cursor":
             // "CursorUIViewService" is a macOS system process.

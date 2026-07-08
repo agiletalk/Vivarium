@@ -7,10 +7,11 @@ import VivariumCore
 enum FishSheet {
     private static let order: [(FishSpecies, AgentProvider, String)] = [
         (.whale, .claude, "Claude · whale"),
-        (.dolphin, .gpt, "GPT · dolphin"),
         (.octopus, .codex, "Codex · octopus"),
         (.jellyfish, .gemini, "Gemini · jellyfish"),
         (.pufferfish, .cursor, "Cursor · pufferfish"),
+        (.dolphin, .opencode, "OpenCode · dolphin"),
+        (.seaTurtle, .copilot, "Copilot · sea turtle"),
     ]
 
     static func renderPNG(scale: CGFloat = 3.0) -> Data? {

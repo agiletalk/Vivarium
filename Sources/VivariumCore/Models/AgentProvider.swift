@@ -6,7 +6,9 @@ public enum AgentProvider: String, Codable, Sendable, CaseIterable, Hashable {
     case codex
     case gemini
     case cursor
-    /// Generic/unclassified agents and the demo dolphin.
+    case opencode
+    case copilot
+    /// Legacy/rare-visitor dolphin; retained for state compatibility, not detected live.
     case gpt
 
     public var species: FishSpecies {
@@ -15,6 +17,8 @@ public enum AgentProvider: String, Codable, Sendable, CaseIterable, Hashable {
         case .codex: .octopus
         case .gemini: .jellyfish
         case .cursor: .pufferfish
+        case .opencode: .dolphin
+        case .copilot: .seaTurtle
         case .gpt: .dolphin
         }
     }
@@ -25,6 +29,8 @@ public enum AgentProvider: String, Codable, Sendable, CaseIterable, Hashable {
         case .codex: "Codex"
         case .gemini: "Gemini"
         case .cursor: "Cursor"
+        case .opencode: "OpenCode"
+        case .copilot: "Copilot"
         case .gpt: "GPT"
         }
     }
@@ -36,4 +42,5 @@ public enum FishSpecies: String, Codable, Sendable, CaseIterable, Hashable {
     case jellyfish
     case pufferfish
     case dolphin
+    case seaTurtle
 }

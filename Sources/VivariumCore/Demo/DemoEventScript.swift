@@ -20,7 +20,10 @@ public struct DemoScenario: Sendable {
         var kind: PendingKind
     }
 
-    private static let projectNames = ["Reef", "Sonar", "Kelp", "Tide", "Coral"]
+    private static let projectNames = ["Reef", "Sonar", "Kelp", "Tide", "Coral", "Cove"]
+    /// One session per real, distinct-species provider (the phantom `gpt` dolphin is excluded so
+    /// the demo shows six distinct species: whale, octopus, jellyfish, pufferfish, dolphin, turtle).
+    private static let demoProviders: [AgentProvider] = [.claude, .codex, .gemini, .cursor, .opencode, .copilot]
     private static let randomStatuses: [AgentStatus] = [.planning, .coding, .testing, .searching, .reviewing]
     private static let taskSummaries = [
         "Polished the fin physics",
@@ -114,7 +117,7 @@ public struct DemoScenario: Sendable {
     private mutating func startBatch() -> (delay: Duration, events: [AgentEvent]) {
         started = true
         var events: [AgentEvent] = []
-        for (index, provider) in AgentProvider.allCases.enumerated() {
+        for (index, provider) in Self.demoProviders.enumerated() {
             let key = SessionKey(provider: provider, sessionID: "demo-\(provider.rawValue)")
             let descriptor = SessionDescriptor(
                 key: key,

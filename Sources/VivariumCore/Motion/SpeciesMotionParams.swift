@@ -93,6 +93,15 @@ public struct SpeciesMotionParams: Sendable {
                 bobAmplitude: 4, bobFrequency: 0.45,
                 arriveSlowRadius: 60, fleeSpeedMultiplier: 1.3
             )
+        case .seaTurtle:
+            // Slow, steady, unhurried glides with a wide turning radius.
+            SpeciesMotionParams(
+                cruiseSpeed: 30, maxSpeed: 62, maxForce: 85,
+                wanderRadius: 85, wanderJitter: 0.09,
+                retargetInterval: 9...16, depthBand: 0.28...0.68,
+                bobAmplitude: 5, bobFrequency: 0.26,
+                arriveSlowRadius: 75, fleeSpeedMultiplier: 1.35
+            )
         }
     }
 }

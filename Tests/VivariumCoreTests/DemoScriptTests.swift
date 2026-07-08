@@ -25,9 +25,11 @@ struct DemoScriptTests {
         var scenario = DemoScenario(seed: 1, startedAt: Self.start)
         let (_, events) = scenario.nextBatch(now: Self.start)
 
-        #expect(events.count == 5)
+        // One session per real, distinct-species provider (all but the phantom `gpt` dolphin).
+        let expectedProviders = Set(AgentProvider.allCases).subtracting([.gpt])
+        #expect(events.count == expectedProviders.count)
         var providers: Set<AgentProvider> = []
-        let names = ["Reef", "Sonar", "Kelp", "Tide", "Coral"]
+        let names = ["Reef", "Sonar", "Kelp", "Tide", "Coral", "Cove"]
         for event in events {
             guard case .sessionStarted(let descriptor) = event else {
                 Issue.record("Expected sessionStarted, got \(event)")
@@ -40,7 +42,7 @@ struct DemoScriptTests {
             #expect(!descriptor.isSubagent)
             #expect(descriptor.startedAt == Self.start)
         }
-        #expect(providers == Set(AgentProvider.allCases))
+        #expect(providers == expectedProviders)
     }
 
     @Test("200 batches produce only plausible event sequences")
@@ -120,16 +122,17 @@ struct DemoScriptTests {
 
     @Test("DemoEventScript streams the scenario's events")
     func streamsEvents() async {
+        let expectedProviders = Set(AgentProvider.allCases).subtracting([.gpt])
         let script = DemoEventScript(seed: 9, speed: 5_000)
         var received: [AgentEvent] = []
         for await event in script.events() {
             received.append(event)
-            if received.count == 5 { break }
+            if received.count == expectedProviders.count { break }
         }
         let providers = received.compactMap { event -> AgentProvider? in
             if case .sessionStarted(let descriptor) = event { return descriptor.key.provider }
             return nil
         }
-        #expect(Set(providers) == Set(AgentProvider.allCases))
+        #expect(Set(providers) == expectedProviders)
     }
 }

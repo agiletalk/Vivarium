@@ -18,6 +18,8 @@ final class TextureFactory {
         case .codex: NSColor(srgbRed: 0.98, green: 0.55, blue: 0.20, alpha: 1)    // orange
         case .gemini: NSColor(srgbRed: 0.56, green: 0.40, blue: 0.92, alpha: 1)   // purple
         case .cursor: NSColor(srgbRed: 0.95, green: 0.44, blue: 0.71, alpha: 1)   // pink
+        case .opencode: NSColor(srgbRed: 0.30, green: 0.66, blue: 0.98, alpha: 1) // sky blue
+        case .copilot: NSColor(srgbRed: 0.28, green: 0.74, blue: 0.55, alpha: 1)  // sea green
         case .gpt: NSColor(srgbRed: 0.30, green: 0.60, blue: 0.95, alpha: 1)      // blue
         }
     }
@@ -74,6 +76,7 @@ final class TextureFactory {
         case .octopus: CGSize(width: 72, height: 66)
         case .jellyfish: CGSize(width: 56, height: 66)
         case .pufferfish: CGSize(width: 60, height: 58)
+        case .seaTurtle: CGSize(width: 92, height: 64)
         }
     }
 
@@ -81,7 +84,7 @@ final class TextureFactory {
     static func hasTail(_ species: FishSpecies) -> Bool {
         switch species {
         case .whale, .dolphin, .pufferfish: true
-        case .octopus, .jellyfish: false
+        case .octopus, .jellyfish, .seaTurtle: false
         }
     }
 
@@ -560,6 +563,33 @@ final class TextureFactory {
                               control2: CGPoint(x: sx + ww - wob * w * 0.06, y: hemY - len * 0.5))
                 path.closeSubpath()
             }
+
+        case .seaTurtle:
+            // Front flipper (large paddle sweeping down-forward), drawn first so the shell overlaps it.
+            path.move(to: P(0.60, 0.44))
+            path.addQuadCurve(to: P(0.94, 0.10), control: P(0.92, 0.34))
+            path.addQuadCurve(to: P(0.60, 0.24), control: P(0.78, 0.02))
+            path.closeSubpath()
+            // Rear flipper (smaller, sweeping down-back).
+            path.move(to: P(0.34, 0.34))
+            path.addQuadCurve(to: P(0.10, 0.10), control: P(0.12, 0.24))
+            path.addQuadCurve(to: P(0.36, 0.22), control: P(0.18, 0.10))
+            path.closeSubpath()
+            // Short tail nub at the back.
+            path.move(to: P(0.14, 0.44))
+            path.addQuadCurve(to: P(0.02, 0.38), control: P(0.06, 0.45))
+            path.addQuadCurve(to: P(0.14, 0.33), control: P(0.06, 0.34))
+            path.closeSubpath()
+            // Head + neck poking out front-right.
+            path.move(to: P(0.72, 0.58))
+            path.addQuadCurve(to: P(0.99, 0.54), control: P(0.90, 0.64))
+            path.addQuadCurve(to: P(0.99, 0.36), control: P(1.04, 0.45))
+            path.addQuadCurve(to: P(0.72, 0.42), control: P(0.90, 0.32))
+            path.closeSubpath()
+            // Domed carapace (shell), on top.
+            let shell = CGRect(x: r.minX + w * 0.14, y: r.minY + h * 0.28,
+                               width: w * 0.62, height: h * 0.64)
+            path.addEllipse(in: shell)
         }
         return path
     }
@@ -574,7 +604,82 @@ final class TextureFactory {
         case .octopus: detailOctopus(ctx, rect: r, bodyPath: bodyPath, base: base, legendary: legendary)
         case .jellyfish: detailJellyfish(ctx, rect: r, bodyPath: bodyPath, base: base, legendary: legendary)
         case .pufferfish: detailPuffer(ctx, rect: r, bodyPath: bodyPath, base: base, legendary: legendary)
+        case .seaTurtle: detailSeaTurtle(ctx, rect: r, bodyPath: bodyPath, base: base, legendary: legendary)
         }
+    }
+
+    // MARK: sea turtle details
+    static func detailSeaTurtle(_ ctx: CGContext, rect r: CGRect, bodyPath: CGPath, base: NSColor, legendary: Bool) {
+        func P(_ fx: CGFloat, _ fy: CGFloat) -> CGPoint { CGPoint(x: r.minX + r.width * fx, y: r.minY + r.height * fy) }
+        let w = r.width
+
+        // Shell region (must match the carapace ellipse in bodyPath).
+        let shell = CGRect(x: r.minX + w * 0.14, y: r.minY + r.height * 0.28,
+                           width: w * 0.62, height: r.height * 0.64)
+
+        ctx.saveGState()
+        ctx.addPath(bodyPath)
+        ctx.clip()
+
+        // Darker carapace so the shell reads distinctly from the lighter flippers/head.
+        let shellDark = (base.blended(withFraction: 0.30, of: .black) ?? base)
+        ctx.setFillColor(shellDark.withAlphaComponent(0.40).cgColor)
+        ctx.fillEllipse(in: shell)
+
+        // Scute pattern: a central column of hexagon-ish plates plus a ring of border scutes.
+        let scuteLine = NSColor(white: 0, alpha: legendary ? 0.10 : 0.20)
+        ctx.setStrokeColor(scuteLine.cgColor)
+        ctx.setLineWidth(1.3)
+        ctx.setLineJoin(.round)
+        let cx = shell.midX, cy = shell.midY
+        let rx = shell.width * 0.5, ry = shell.height * 0.5
+        // Three central plates down the midline.
+        for i in 0..<3 {
+            let t = CGFloat(i)
+            let plate = CGRect(x: cx - rx * 0.24, y: cy - ry * 0.55 + t * ry * 0.42,
+                               width: rx * 0.48, height: ry * 0.40)
+            let hex = CGMutablePath()
+            hex.move(to: CGPoint(x: plate.midX, y: plate.maxY))
+            hex.addLine(to: CGPoint(x: plate.maxX, y: plate.midY + plate.height * 0.18))
+            hex.addLine(to: CGPoint(x: plate.maxX, y: plate.midY - plate.height * 0.18))
+            hex.addLine(to: CGPoint(x: plate.midX, y: plate.minY))
+            hex.addLine(to: CGPoint(x: plate.minX, y: plate.midY - plate.height * 0.18))
+            hex.addLine(to: CGPoint(x: plate.minX, y: plate.midY + plate.height * 0.18))
+            hex.closeSubpath()
+            ctx.addPath(hex)
+        }
+        ctx.strokePath()
+        // Border scutes: radial spokes near the shell rim.
+        ctx.setStrokeColor(scuteLine.withAlphaComponent(legendary ? 0.08 : 0.15).cgColor)
+        ctx.setLineWidth(1.1)
+        for k in 0..<10 {
+            let a = Double(k) / 10 * 2 * .pi
+            let inner = CGPoint(x: cx + CGFloat(cos(a)) * rx * 0.62, y: cy + CGFloat(sin(a)) * ry * 0.62)
+            let outer = CGPoint(x: cx + CGFloat(cos(a)) * rx * 0.98, y: cy + CGFloat(sin(a)) * ry * 0.98)
+            ctx.move(to: inner)
+            ctx.addLine(to: outer)
+        }
+        ctx.strokePath()
+
+        // Shell rim highlight and a domed gloss.
+        ctx.setStrokeColor(NSColor(white: 1, alpha: 0.22).cgColor)
+        ctx.setLineWidth(1.4)
+        ctx.strokeEllipse(in: shell.insetBy(dx: 1.5, dy: 1.5))
+        Self.fillRadial(ctx, center: P(0.42, 0.78), radius: w * 0.16,
+                        inner: NSColor(white: 1, alpha: 0.28), outer: NSColor(white: 1, alpha: 0))
+
+        // Light speckles on the head and flippers for a sea-turtle mottle.
+        ctx.setFillColor(NSColor(white: 1, alpha: 0.30).cgColor)
+        let dots: [(CGFloat, CGFloat, CGFloat)] = [
+            (0.86, 0.48, 1.6), (0.90, 0.42, 1.3),          // head/cheek
+            (0.74, 0.20, 1.6), (0.82, 0.16, 1.4),          // front flipper
+            (0.22, 0.20, 1.4), (0.16, 0.16, 1.2),          // rear flipper
+        ]
+        for d in dots {
+            let c = P(d.0, d.1)
+            ctx.fillEllipse(in: CGRect(x: c.x - d.2, y: c.y - d.2, width: d.2 * 2, height: d.2 * 2))
+        }
+        ctx.restoreGState()
     }
 
     // MARK: whale details

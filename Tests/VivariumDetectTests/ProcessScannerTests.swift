@@ -8,33 +8,44 @@ struct ProcessScannerTests {
     // MARK: - Classification (real ps lines from this machine)
 
     @Test(
-        "classify matches exact argv[0] basename",
+        "classify matches known agent binaries",
         arguments: [
             ("25989   0.2 S+   claude", AgentProvider.claude),
             ("65276  36.8 R+   claude --enable-auto-mode", .claude),
             ("55329   0.1 S    /Applications/Codex.app/Contents/Resources/codex", .codex),
-            ("55192   0.0 S    /Applications/Codex.app/Contents/MacOS/Codex", nil),
-            (
-                " 1929   0.0 S    /System/Library/Frameworks/AppKit.framework/Versions/C/XPCServices/CursorUIViewService.xpc/Contents/MacOS/CursorUIViewService",
-                nil
-            ),
             ("  123   1.0 S    node /usr/local/lib/node_modules/@google/gemini-cli/dist/gemini.js", .gemini),
-            ("  124   0.0 S    node /some/other/app.js", nil),
             ("  125   2.0 R    cursor-agent --serve", .cursor),
             ("  126   0.5 S    gemini --model pro", .gemini),
-            (
-                "55401   0.3 S    /Applications/Codex.app/Contents/Resources/codex --type=renderer Codex (Renderer)",
-                nil
-            ),
-            ("55402   0.1 S    /Applications/Codex.app/Contents/Resources/codex Sparkle updater", nil),
-            ("55403   0.0 S    /Applications/Codex.app/Contents/Resources/codex crashpad_handler", nil),
-        ] as [(String, AgentProvider?)]
+            ("  200   1.2 R    opencode", .opencode),
+            ("  201   0.8 S    /opt/homebrew/bin/opencode run", .opencode),
+            ("  202   0.4 S    node /usr/local/lib/node_modules/@github/copilot/index.js", .copilot),
+            ("  203   0.6 R    copilot --resume", .copilot),
+            ("  204   0.1 S    gh copilot suggest 'undo last commit'", .copilot),
+        ] as [(String, AgentProvider)]
     )
-    func classifyLine(line: String, expected: AgentProvider?) throws {
+    func classifyPositive(line: String, expected: AgentProvider) throws {
         let rows = ProviderClassifier.parsePSOutput(line)
         let row = try #require(rows.first)
         #expect(rows.count == 1)
         #expect(ProviderClassifier.classify(row) == expected)
+    }
+
+    @Test(
+        "classify rejects non-agent processes",
+        arguments: [
+            "55192   0.0 S    /Applications/Codex.app/Contents/MacOS/Codex",
+            " 1929   0.0 S    /System/Library/Frameworks/AppKit.framework/Versions/C/XPCServices/CursorUIViewService.xpc/Contents/MacOS/CursorUIViewService",
+            "  124   0.0 S    node /some/other/app.js",
+            "55401   0.3 S    /Applications/Codex.app/Contents/Resources/codex --type=renderer Codex (Renderer)",
+            "55402   0.1 S    /Applications/Codex.app/Contents/Resources/codex Sparkle updater",
+            "55403   0.0 S    /Applications/Codex.app/Contents/Resources/codex crashpad_handler",
+            "  205   0.0 S    copilot-language-server --stdio",
+        ]
+    )
+    func classifyNegative(line: String) throws {
+        let rows = ProviderClassifier.parsePSOutput(line)
+        let row = try #require(rows.first)
+        #expect(ProviderClassifier.classify(row) == nil)
     }
 
     // MARK: - Parsing
