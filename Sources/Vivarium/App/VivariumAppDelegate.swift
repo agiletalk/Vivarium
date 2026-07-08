@@ -13,6 +13,7 @@ final class VivariumAppDelegate: NSObject, NSApplicationDelegate {
     let settings: SettingsStore
     let controller: any AquariumHosting
     let presenter = AquariumWindowPresenter()
+    private let settingsWindow = SettingsWindowController()
     private var menuBar: MenuBarController?
 
     private let qaOpenAquarium: Bool
@@ -67,7 +68,7 @@ final class VivariumAppDelegate: NSObject, NSApplicationDelegate {
         menuBar = MenuBarController(
             store: store,
             onOpenAquarium: { [weak self] in self?.openAquarium() },
-            onOpenSettings: { Self.openSettingsWindow() }
+            onOpenSettings: { [weak self] in self?.openSettings() }
         )
 
         if qaOpenAquarium || snapshotPath != nil {
@@ -84,6 +85,29 @@ final class VivariumAppDelegate: NSObject, NSApplicationDelegate {
                 try? await Task.sleep(for: .seconds(7))
                 if let data = self?.controller.snapshotPNG() {
                     try? data.write(to: URL(fileURLWithPath: snapshotPath))
+                }
+                try? await Task.sleep(for: .milliseconds(300))
+                NSApp.terminate(nil)
+            }
+        }
+
+        if ProcessInfo.processInfo.arguments.contains("--vivarium-verify-settings") {
+            Task {
+                try? await Task.sleep(for: .seconds(2))
+                let before = NSApp.windows.map { "\($0.title)|vis=\($0.isVisible)" }
+                DebugTrace.log("settings: windows BEFORE = \(before)")
+                self.openSettings()
+                try? await Task.sleep(for: .milliseconds(900))
+                let after = NSApp.windows.map { "\($0.title)|vis=\($0.isVisible)" }
+                DebugTrace.log("settings: windows AFTER = \(after)")
+                if let win = NSApp.windows.first(where: { $0.title == "Vivarium Settings" }),
+                   let view = win.contentView,
+                   let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
+                    view.cacheDisplay(in: view.bounds, to: rep)
+                    if let data = rep.representation(using: .png, properties: [:]) {
+                        try? data.write(to: URL(fileURLWithPath: "/tmp/viv-settings.png"))
+                        DebugTrace.log("settings: PNG written")
+                    }
                 }
                 try? await Task.sleep(for: .milliseconds(300))
                 NSApp.terminate(nil)
@@ -115,8 +139,7 @@ final class VivariumAppDelegate: NSObject, NSApplicationDelegate {
         presenter.openAquarium(controller: controller, store: store)
     }
 
-    static func openSettingsWindow() {
-        NSApp.activate(ignoringOtherApps: true)
-        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+    func openSettings() {
+        settingsWindow.show(store: store, settings: settings)
     }
 }

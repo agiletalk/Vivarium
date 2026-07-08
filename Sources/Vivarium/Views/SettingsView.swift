@@ -5,16 +5,32 @@ struct SettingsView: View {
     let store: VivariumStore
     @Bindable var settings: SettingsStore
 
+    private enum Tab: Hashable { case general, providers, aquarium }
+    @State private var tab: Tab = .general
+
     var body: some View {
-        TabView {
-            GeneralSettingsTab(settings: settings)
-                .tabItem { Label("General", systemImage: "gearshape") }
-            ProviderSettingsTab(settings: settings)
-                .tabItem { Label("Providers", systemImage: "point.3.filled.connected.trianglepath.dotted") }
-            AquariumSettingsTab(store: store, settings: settings)
-                .tabItem { Label("Aquarium", systemImage: "water.waves") }
+        VStack(spacing: 0) {
+            Picker("", selection: $tab) {
+                Label("General", systemImage: "gearshape").tag(Tab.general)
+                Label("Providers", systemImage: "point.3.filled.connected.trianglepath.dotted").tag(Tab.providers)
+                Label("Aquarium", systemImage: "water.waves").tag(Tab.aquarium)
+            }
+            .pickerStyle(.segmented)
+            .labelStyle(.titleAndIcon)
+            .labelsHidden()
+            .padding(12)
+
+            Divider()
+
+            Group {
+                switch tab {
+                case .general: GeneralSettingsTab(settings: settings)
+                case .providers: ProviderSettingsTab(settings: settings)
+                case .aquarium: AquariumSettingsTab(store: store, settings: settings)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(width: 460, height: 320)
     }
 }
 
