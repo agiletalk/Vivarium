@@ -138,6 +138,9 @@ final class TextureFactory {
                             inner: NSColor(white: 1, alpha: 0.40), outer: NSColor(white: 1, alpha: 0))
             ctx.restoreGState()
 
+            // Species-specific surface detailing (pleats, suckers, spots, bell ribs, …).
+            Self.drawDetails(species, ctx: ctx, rect: rect, bodyPath: path, base: base, legendary: legendary)
+
             // Outline.
             ctx.addPath(path)
             ctx.setStrokeColor(NSColor(white: legendary ? 1 : 0, alpha: legendary ? 0.6 : 0.20).cgColor)
@@ -560,4 +563,381 @@ final class TextureFactory {
         }
         return path
     }
+
+    // MARK: - Species detailing
+
+    /// Draws per-species surface details on top of the base body fill (before the outline).
+    private static func drawDetails(_ species: FishSpecies, ctx: CGContext, rect r: CGRect, bodyPath: CGPath, base: NSColor, legendary: Bool) {
+        switch species {
+        case .whale: detailWhale(ctx, rect: r, bodyPath: bodyPath, base: base, legendary: legendary)
+        case .dolphin: detailDolphin(ctx, rect: r, bodyPath: bodyPath, base: base, legendary: legendary)
+        case .octopus: detailOctopus(ctx, rect: r, bodyPath: bodyPath, base: base, legendary: legendary)
+        case .jellyfish: detailJellyfish(ctx, rect: r, bodyPath: bodyPath, base: base, legendary: legendary)
+        case .pufferfish: detailPuffer(ctx, rect: r, bodyPath: bodyPath, base: base, legendary: legendary)
+        }
+    }
+
+    // MARK: whale details
+    static func detailWhale(_ ctx: CGContext, rect r: CGRect, bodyPath: CGPath, base: NSColor, legendary: Bool) {
+    func P(_ fx: CGFloat, _ fy: CGFloat) -> CGPoint {
+        CGPoint(x: r.minX + r.width * fx, y: r.minY + r.height * fy)
+    }
+
+    // Warm, soften the dark accents down for the gold legendary body.
+    let belly = base.blended(withFraction: 0.5, of: .white) ?? base
+    let grooveAlpha: CGFloat = legendary ? 0.07 : 0.12
+    let mouthAlpha: CGFloat = legendary ? 0.14 : 0.22
+    let blowAlpha: CGFloat = legendary ? 0.16 : 0.25
+
+    // 1. Countershading belly: a crisper, clearly-lighter underside that fades
+    //    softly up into the flank with no hard seam.
+    ctx.saveGState()
+    ctx.addPath(bodyPath)
+    ctx.clip()
+    let bellyRect = CGRect(x: r.minX, y: r.minY, width: r.width, height: r.height * 0.48)
+    Self.fillVerticalGradient(ctx, rect: bellyRect,
+                              top: belly.withAlphaComponent(0),
+                              bottom: belly.withAlphaComponent(0.5))
+    ctx.restoreGState()
+
+    // 2. Ventral throat pleats: thin, gently curved grooves along the lower front.
+    ctx.saveGState()
+    ctx.addPath(bodyPath)
+    ctx.clip()
+    ctx.setStrokeColor(NSColor(white: 0, alpha: grooveAlpha).cgColor)
+    ctx.setLineWidth(1.2)
+    ctx.setLineCap(.round)
+    for i in 0..<6 {
+        let fx = 0.62 + 0.055 * CGFloat(i)   // 0.62 … 0.895
+        let pleat = CGMutablePath()
+        pleat.move(to: P(fx, 0.34))
+        pleat.addQuadCurve(to: P(fx + 0.02, 0.06), control: P(fx - 0.03, 0.20))
+        ctx.addPath(pleat)
+        ctx.strokePath()
+    }
+    ctx.restoreGState()
+
+    // 3. Blowhole: a small dark oval on top of the head.
+    ctx.saveGState()
+    ctx.addPath(bodyPath)
+    ctx.clip()
+    let blow = P(0.80, 0.90)
+    ctx.setFillColor(NSColor(white: 0, alpha: blowAlpha).cgColor)
+    ctx.fillEllipse(in: CGRect(x: blow.x - 3, y: blow.y - 1.8, width: 6, height: 3.6))
+    ctx.restoreGState()
+
+    // 4. Mouth line: a smooth, slightly downturned curve from the snout back.
+    ctx.saveGState()
+    ctx.addPath(bodyPath)
+    ctx.clip()
+    let mouth = CGMutablePath()
+    mouth.move(to: P(0.99, 0.40))
+    mouth.addQuadCurve(to: P(0.76, 0.30), control: P(0.88, 0.28))
+    ctx.addPath(mouth)
+    ctx.setStrokeColor(NSColor(white: 0, alpha: mouthAlpha).cgColor)
+    ctx.setLineWidth(1.4)
+    ctx.setLineCap(.round)
+    ctx.strokePath()
+    ctx.restoreGState()
+
+    // 5. Soft highlight glint on the melon/forehead.
+    ctx.saveGState()
+    ctx.addPath(bodyPath)
+    ctx.clip()
+    Self.fillRadial(ctx, center: P(0.86, 0.72), radius: r.width * 0.09,
+                    inner: NSColor(white: 1, alpha: 0.25), outer: NSColor(white: 1, alpha: 0))
+    ctx.restoreGState()
+}
+
+    // MARK: dolphin details
+    static func detailDolphin(_ ctx: CGContext, rect r: CGRect, bodyPath: CGPath, base: NSColor, legendary: Bool) {
+    func P(_ fx: CGFloat, _ fy: CGFloat) -> CGPoint { CGPoint(x: r.minX + r.width * fx, y: r.minY + r.height * fy) }
+
+    let cs = CGColorSpaceCreateDeviceRGB()
+    func linear(_ inner: NSColor, _ outer: NSColor, from a: CGPoint, to b: CGPoint, before: Bool) {
+        let cols = [inner.cgColor, outer.cgColor] as CFArray
+        guard let g = CGGradient(colorsSpace: cs, colors: cols, locations: [0, 1]) else { return }
+        ctx.drawLinearGradient(g, start: a, end: b, options: before ? [.drawsBeforeStartLocation] : [])
+    }
+
+    let bellyLight = base.blended(withFraction: 0.55, of: .white) ?? base
+    let darkTopA: CGFloat = legendary ? 0.05 : 0.10
+    let stripeA: CGFloat = legendary ? 0.09 : 0.14
+    let holeA: CGFloat = legendary ? 0.16 : 0.25
+    let mouthA: CGFloat = legendary ? 0.20 : 0.28
+
+    ctx.saveGState()
+    ctx.addPath(bodyPath)
+    ctx.clip()
+
+    // 1a. Light underside — soft, slightly forward-rising diagonal edge over the lower body.
+    linear(bellyLight.withAlphaComponent(0.5), bellyLight.withAlphaComponent(0),
+           from: P(0.45, 0.06), to: P(0.72, 0.50), before: true)
+
+    // 1b. Faint darker wash along the very top of the back.
+    linear(NSColor(white: 0, alpha: darkTopA), NSColor(white: 0, alpha: 0),
+           from: P(0.5, 1.0), to: P(0.5, 0.72), before: false)
+
+    // 4. Soft countershade eye stripe sweeping back-down from behind the eye area.
+    ctx.setLineCap(.round)
+    ctx.setLineJoin(.round)
+    ctx.setStrokeColor(NSColor(white: 0, alpha: stripeA).cgColor)
+    ctx.setLineWidth(r.height * 0.14)
+    let stripe = CGMutablePath()
+    stripe.move(to: P(0.70, 0.60))
+    stripe.addQuadCurve(to: P(0.55, 0.52), control: P(0.63, 0.55))
+    ctx.addPath(stripe)
+    ctx.strokePath()
+
+    // 3. Blowhole — a tiny dark crescent on top.
+    let bc = P(0.64, 0.84)
+    let bw = r.width * 0.045
+    let bh = r.height * 0.06
+    let hole = CGMutablePath()
+    hole.move(to: CGPoint(x: bc.x - bw, y: bc.y))
+    hole.addQuadCurve(to: CGPoint(x: bc.x + bw, y: bc.y), control: CGPoint(x: bc.x, y: bc.y + bh))
+    hole.addQuadCurve(to: CGPoint(x: bc.x - bw, y: bc.y), control: CGPoint(x: bc.x, y: bc.y + bh * 0.4))
+    hole.closeSubpath()
+    ctx.setFillColor(NSColor(white: 0, alpha: holeA).cgColor)
+    ctx.addPath(hole)
+    ctx.fillPath()
+
+    // 5. Crisp gloss glint high on the melon.
+    Self.fillRadial(ctx, center: P(0.80, 0.72), radius: r.width * 0.09,
+                    inner: NSColor(white: 1, alpha: legendary ? 0.34 : 0.30),
+                    outer: NSColor(white: 1, alpha: 0))
+
+    // 2. Mouth line from the rostrum tip back, very slightly open (upper + lower jaw).
+    ctx.setStrokeColor(NSColor(white: 0, alpha: mouthA).cgColor)
+    ctx.setLineWidth(1.3)
+    let mouth = CGMutablePath()
+    mouth.move(to: P(1.0, 0.45))
+    mouth.addQuadCurve(to: P(0.80, 0.44), control: P(0.90, 0.435))
+    ctx.addPath(mouth)
+    ctx.strokePath()
+    ctx.setStrokeColor(NSColor(white: 0, alpha: mouthA * 0.7).cgColor)
+    ctx.setLineWidth(1.1)
+    let jaw = CGMutablePath()
+    jaw.move(to: P(0.985, 0.415))
+    jaw.addQuadCurve(to: P(0.85, 0.41), control: P(0.92, 0.40))
+    ctx.addPath(jaw)
+    ctx.strokePath()
+
+    ctx.restoreGState()
+}
+
+    // MARK: octopus details
+    static func detailOctopus(_ ctx: CGContext, rect r: CGRect, bodyPath: CGPath, base: NSColor, legendary: Bool) {
+    func P(_ fx: CGFloat, _ fy: CGFloat) -> CGPoint { CGPoint(x: r.minX + r.width * fx, y: r.minY + r.height * fy) }
+    let w = r.width
+
+    // Neutral shading tones (kept subtle; softened further when the body is gold).
+    let shade = NSColor(white: 0, alpha: legendary ? 0.06 : 0.10)
+    let clear = NSColor(white: 0, alpha: 0)
+
+    // --- Surface details clipped to the silhouette ---
+    ctx.saveGState()
+    ctx.addPath(bodyPath)
+    ctx.clip()
+
+    // 3. Mantle mottling: soft, blurry darker blotches across the upper dome.
+    let blotches: [(CGFloat, CGFloat, CGFloat)] = [
+        (0.30, 0.86, 0.13),
+        (0.58, 0.90, 0.11),
+        (0.45, 0.75, 0.10),
+        (0.70, 0.80, 0.12),
+    ]
+    for (bx, by, br) in blotches {
+        Self.fillRadial(ctx, center: P(bx, by), radius: w * br, inner: shade, outer: clear)
+    }
+
+    // 4. Mantle gloss: a soft white radial highlight on top of the dome.
+    Self.fillRadial(ctx, center: P(0.50, 0.90), radius: w * 0.26,
+                    inner: NSColor(white: 1, alpha: legendary ? 0.34 : 0.30),
+                    outer: NSColor(white: 1, alpha: 0))
+
+    // 1. Suckers: a single centered column of light dots down the front arms,
+    //    shrinking toward each arm tip; the frontmost arm gets the most.
+    let sucker = NSColor(white: 1, alpha: 0.35).cgColor
+    let arms: [(CGFloat, Int)] = [(0.50, 3), (0.65, 3), (0.80, 4)]
+    ctx.setFillColor(sucker)
+    for (ax, count) in arms {
+        for i in 0..<count {
+            let t: CGFloat = count <= 1 ? 0 : CGFloat(i) / CGFloat(count - 1) // 0 = top of arm, 1 = tip
+            let fy = 0.42 - t * 0.30                                          // descend the arm
+            let rad = w * (0.017 - t * 0.005)                                // taper toward the tip
+            let c = P(ax, fy)
+            ctx.fillEllipse(in: CGRect(x: c.x - rad, y: c.y - rad, width: rad * 2, height: rad * 2))
+        }
+    }
+    ctx.restoreGState()
+
+    // 5. Brow: a short soft dark curve above the eyes for a touch of expression.
+    ctx.saveGState()
+    ctx.addPath(bodyPath)
+    ctx.clip()
+    ctx.setStrokeColor(NSColor(white: 0, alpha: legendary ? 0.08 : 0.12).cgColor)
+    ctx.setLineWidth(1.4)
+    ctx.setLineCap(.round)
+    let brow = CGMutablePath()
+    brow.move(to: P(0.39, 0.795))
+    brow.addQuadCurve(to: P(0.60, 0.795), control: P(0.495, 0.84))
+    ctx.addPath(brow)
+    ctx.strokePath()
+    ctx.restoreGState()
+
+    // 2. Second eye: a subtle mirror of the main eye so the face reads as two eyes.
+    let eyeC = P(0.42, 0.70)
+    let eyeR: CGFloat = 2.4
+    ctx.setFillColor(NSColor(white: 0, alpha: legendary ? 0.5 : 0.7).cgColor)
+    ctx.fillEllipse(in: CGRect(x: eyeC.x - eyeR, y: eyeC.y - eyeR, width: eyeR * 2, height: eyeR * 2))
+    let hl = CGPoint(x: eyeC.x + 0.8, y: eyeC.y + 0.9)
+    ctx.setFillColor(NSColor(white: 1, alpha: 0.9).cgColor)
+    ctx.fillEllipse(in: CGRect(x: hl.x - 0.9, y: hl.y - 0.9, width: 1.8, height: 1.8))
+}
+
+    // MARK: jellyfish details
+    static func detailJellyfish(_ ctx: CGContext, rect r: CGRect, bodyPath: CGPath, base: NSColor, legendary: Bool) {
+    func P(_ fx: CGFloat, _ fy: CGFloat) -> CGPoint {
+        CGPoint(x: r.minX + r.width * fx, y: r.minY + r.height * fy)
+    }
+    func lighter(_ f: CGFloat) -> NSColor { base.blended(withFraction: f, of: .white) ?? base }
+
+    // Bell interior — inner glow, ribs, and hem rim, all kept inside the silhouette.
+    ctx.saveGState()
+    ctx.addPath(bodyPath)
+    ctx.clip()
+
+    // Inner glow near the top of the dome.
+    Self.fillRadial(ctx, center: P(0.5, 0.72), radius: r.width * 0.35,
+                    inner: NSColor(white: 1, alpha: 0.22), outer: NSColor(white: 1, alpha: 0))
+
+    // Three faint vertical arc "ribs" fanning from the hem toward the dome top.
+    let ribs = CGMutablePath()
+    for fx in [CGFloat(0.34), 0.5, 0.66] {
+        let d = fx - 0.5
+        ribs.move(to: P(fx, 0.49))
+        ribs.addQuadCurve(to: P(0.5 + d * 0.35, 0.90), control: P(fx + d * 0.6, 0.70))
+    }
+    ctx.addPath(ribs)
+    ctx.setStrokeColor(lighter(0.5).withAlphaComponent(0.22).cgColor)
+    ctx.setLineWidth(1.2)
+    ctx.setLineCap(.round)
+    ctx.strokePath()
+
+    // Luminous scalloped hem rim, retracing the bell's bottom edge.
+    let leftFx: CGFloat = 0.05, rightFx: CGFloat = 0.95, hemFy: CGFloat = 0.48
+    let scallops = 3
+    let segFx = (rightFx - leftFx) / CGFloat(scallops)
+    let rim = CGMutablePath()
+    rim.move(to: P(rightFx, hemFy))
+    for s in 0..<scallops {
+        let x0 = rightFx - CGFloat(s) * segFx
+        let x1 = x0 - segFx
+        rim.addQuadCurve(to: P(x1, hemFy), control: P((x0 + x1) / 2, hemFy - 0.11))
+    }
+    ctx.addPath(rim)
+    ctx.setStrokeColor(lighter(0.65).withAlphaComponent(0.5).cgColor)
+    ctx.setLineWidth(1.6)
+    ctx.strokePath()
+
+    ctx.restoreGState()
+
+    // Oral arms — 4 gently wavy, tapering ribbons among the tentacles (unclipped, within r).
+    let armColor = (base.blended(withFraction: 0.3, of: .white) ?? base).withAlphaComponent(0.5)
+    ctx.setFillColor(armColor.cgColor)
+    let arms: [(fx: CGFloat, dir: CGFloat, botFy: CGFloat)] = [
+        (0.32, -1, 0.12), (0.44, 1, 0.10), (0.56, -1, 0.11), (0.68, 1, 0.13),
+    ]
+    let hw: CGFloat = 0.045, sway: CGFloat = 0.055, topFy: CGFloat = 0.47
+    for a in arms {
+        let bx = a.fx + a.dir * sway
+        let arm = CGMutablePath()
+        arm.move(to: P(a.fx - hw, topFy))
+        arm.addCurve(to: P(bx, a.botFy),
+                     control1: P(a.fx - hw - a.dir * sway, 0.34),
+                     control2: P(bx + a.dir * sway * 0.5, 0.20))
+        arm.addCurve(to: P(a.fx + hw, topFy),
+                     control1: P(bx + a.dir * sway * 0.5, 0.20),
+                     control2: P(a.fx + hw - a.dir * sway, 0.34))
+        arm.closeSubpath()
+        ctx.addPath(arm)
+        ctx.fillPath()
+    }
+
+    // Bioluminescent dots tracing the glowing hem.
+    ctx.setFillColor(NSColor(white: 1, alpha: 0.6).cgColor)
+    let dots: [(CGFloat, CGFloat)] = [
+        (0.20, 0.37), (0.35, 0.47), (0.50, 0.37), (0.65, 0.47), (0.80, 0.37), (0.92, 0.47),
+    ]
+    for dot in dots {
+        let c = P(dot.0, dot.1)
+        let rad: CGFloat = 1.3
+        ctx.fillEllipse(in: CGRect(x: c.x - rad, y: c.y - rad, width: rad * 2, height: rad * 2))
+    }
+}
+
+    // MARK: puffer details
+    static func detailPuffer(_ ctx: CGContext, rect r: CGRect, bodyPath: CGPath, base: NSColor, legendary: Bool) {
+    func P(_ fx: CGFloat, _ fy: CGFloat) -> CGPoint { CGPoint(x: r.minX + r.width * fx, y: r.minY + r.height * fy) }
+
+    // --- Surface details clipped to the body silhouette ---
+    ctx.saveGState()
+    ctx.addPath(bodyPath)
+    ctx.clip()
+
+    // 1. Belly countershade: lighter underside fading softly upward.
+    let belly = (base.blended(withFraction: 0.5, of: .white) ?? base).withAlphaComponent(0.5)
+    let bellyRect = CGRect(x: r.minX, y: r.minY, width: r.width, height: r.height * 0.45)
+    Self.fillVerticalGradient(ctx, rect: bellyRect, top: belly.withAlphaComponent(0), bottom: belly)
+
+    // 2. Classic puffer speckle over the upper body (eye at P(0.66,0.64) left clear).
+    let spotColor = NSColor(white: 0, alpha: legendary ? 0.07 : 0.14)
+    ctx.setFillColor(spotColor.cgColor)
+    let spots: [(CGFloat, CGFloat, CGFloat)] = [
+        (0.26, 0.60, 2.0), (0.34, 0.72, 2.2), (0.44, 0.62, 1.8),
+        (0.40, 0.80, 1.8), (0.52, 0.70, 2.2), (0.55, 0.55, 1.6),
+        (0.62, 0.80, 2.0), (0.78, 0.74, 1.8)
+    ]
+    for s in spots {
+        let c = P(s.0, s.1)
+        ctx.fillEllipse(in: CGRect(x: c.x - s.2, y: c.y - s.2, width: s.2 * 2, height: s.2 * 2))
+    }
+
+    // 3. Cheek blush: soft warm pink low on the face.
+    let blush = NSColor(srgbRed: 1, green: 0.7, blue: 0.75, alpha: legendary ? 0.22 : 0.28)
+    Self.fillRadial(ctx, center: P(0.72, 0.44), radius: r.width * 0.12, inner: blush, outer: blush.withAlphaComponent(0))
+
+    // 6. Soft gloss glint high on the back.
+    let glint = NSColor(white: 1, alpha: 0.28)
+    Self.fillRadial(ctx, center: P(0.58, 0.80), radius: r.width * 0.16, inner: glint, outer: glint.withAlphaComponent(0))
+
+    // 4. Pursed "o" mouth at the front for the puffer pout.
+    let mouth = NSColor(white: 0, alpha: legendary ? 0.32 : 0.5)
+    ctx.setFillColor(mouth.cgColor)
+    let m = P(0.90, 0.42)
+    ctx.fillEllipse(in: CGRect(x: m.x - 1.6, y: m.y - 2.0, width: 3.2, height: 4.0))
+
+    ctx.restoreGState()
+
+    // 5. Pectoral fin fanning from the side — drawn on the surface (no clip), within r.
+    let finFill = (base.blended(withFraction: 0.2, of: .white) ?? base).withAlphaComponent(0.55)
+    ctx.setFillColor(finFill.cgColor)
+    let fin = CGMutablePath()
+    fin.move(to: P(0.60, 0.40))
+    fin.addQuadCurve(to: P(0.82, 0.28), control: P(0.74, 0.40))
+    fin.addQuadCurve(to: P(0.62, 0.18), control: P(0.74, 0.20))
+    fin.addQuadCurve(to: P(0.60, 0.40), control: P(0.58, 0.29))
+    fin.closeSubpath()
+    ctx.addPath(fin)
+    ctx.fillPath()
+
+    let ray = (base.blended(withFraction: 0.25, of: .black) ?? base).withAlphaComponent(legendary ? 0.15 : 0.25)
+    ctx.setStrokeColor(ray.cgColor)
+    ctx.setLineWidth(1)
+    ctx.setLineCap(.round)
+    ctx.move(to: P(0.62, 0.36)); ctx.addLine(to: P(0.79, 0.30)); ctx.strokePath()
+    ctx.move(to: P(0.63, 0.29)); ctx.addLine(to: P(0.76, 0.23)); ctx.strokePath()
+}
+
 }

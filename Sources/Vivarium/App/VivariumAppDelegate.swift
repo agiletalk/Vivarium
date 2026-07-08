@@ -94,6 +94,19 @@ final class VivariumAppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
+        if let i = ProcessInfo.processInfo.arguments.firstIndex(of: "--vivarium-fish-sheet"),
+           ProcessInfo.processInfo.arguments.indices.contains(i + 1) {
+            let path = ProcessInfo.processInfo.arguments[i + 1]
+            Task {
+                try? await Task.sleep(for: .milliseconds(400))
+                if let data = FishSheet.renderPNG() {
+                    try? data.write(to: URL(fileURLWithPath: path))
+                }
+                try? await Task.sleep(for: .milliseconds(200))
+                NSApp.terminate(nil)
+            }
+        }
+
         if ProcessInfo.processInfo.arguments.contains("--vivarium-verify-settings") {
             Task {
                 try? await Task.sleep(for: .seconds(2))
