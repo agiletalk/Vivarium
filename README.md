@@ -61,6 +61,8 @@ swift test                     # Core/Detect 유닛 테스트
 
 Xcode에서 열려면 `Package.swift`를 열고 `Vivarium` 스킴 실행. 앱은 Dock에 안 뜨고 메뉴바 아이콘으로만 나타납니다.
 
-## 상태 저장
+## 표시 규칙 & 상태 저장
 
-`~/Library/Application Support/Vivarium/vivarium-state.json` — 물고기 성장·전문분야·업적·산호 스테이지·누적 카운터만 저장(위치·풍선 등 일시 상태는 저장 안 함). `schemaVersion` 기반 마이그레이션.
+물고기는 **해당 에이전트가 실행 중일 때만** 탱크에 나타납니다. 세션이 끝나거나(CLI 종료 → 프로세스 사라짐 감지, ~45초) 프로세스 스캔 에이전트가 멈추면 물고기는 사라집니다. 단, 그 물고기의 **Memory Fish 스탯(성장·전문분야·완료 수)은 휴면(dormant) 보관**되어, 같은 (프로바이더·프로젝트) 에이전트가 다시 실행되면 그대로 복원됩니다.
+
+`~/Library/Application Support/Vivarium/vivarium-state.json` — 휴면 물고기 스탯·업적·산호 스테이지·누적 카운터만 저장(위치·풍선·현재 세션 등 일시 상태와 화면에 보이는 물고기는 저장 안 함). 따라서 앱을 새로 켜면 실행 중인 에이전트가 없는 한 탱크는 비어 있습니다. `schemaVersion` 기반 마이그레이션.

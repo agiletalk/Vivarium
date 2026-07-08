@@ -80,18 +80,29 @@ public extension EcosystemState {
     /// ephemeral fish, sessions, food, pearls, shark, rareVisitor, thoughts, eventLog; residents
     /// keep growth/memory/counters but status becomes .resting, activityLevel .sleeping.
     func sanitizedForPersistence() -> EcosystemState {
-        var sanitized = self
-        sanitized.fish = fish.compactMap { fish in
-            guard fish.isResident, !fish.id.isDemo, fish.projectKey?.hasPrefix("demo/") != true else {
-                return nil
-            }
-            var resident = fish
-            resident.status = .resting
-            resident.activityLevel = .sleeping
-            resident.thought = nil
-            resident.currentSessionTitle = nil
-            return resident
+        func keepable(_ fish: FishState) -> Bool {
+            fish.isResident && !fish.id.isDemo && fish.projectKey?.hasPrefix("demo/") != true
         }
+        func dormantForm(_ fish: FishState) -> FishState {
+            var f = fish
+            f.status = .resting
+            f.activityLevel = .sleeping
+            f.thought = nil
+            f.currentSessionTitle = nil
+            return f
+        }
+
+        var sanitized = self
+        // Only memory-fish stats persist; nothing is rendered until an agent runs again. Fold any
+        // still-visible residents into the dormant roster so their growth/expertise survives.
+        var dormant = self.dormant.filter(keepable).map(dormantForm)
+        for fish in fish where keepable(fish) {
+            let revived = dormantForm(fish)
+            dormant.removeAll { $0.id == revived.id }
+            dormant.append(revived)
+        }
+        sanitized.dormant = dormant
+        sanitized.fish = []
         sanitized.sessions = []
         sanitized.food = []
         sanitized.pearls = []

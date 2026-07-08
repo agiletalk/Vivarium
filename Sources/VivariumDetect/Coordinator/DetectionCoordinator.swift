@@ -14,6 +14,14 @@ public actor DetectionCoordinator: AgentEventStreaming {
     /// Last thought timestamp per session, for the 1-per-2s rate limit.
     private var lastThoughtAt: [SessionKey: Date] = [:]
     private var lastProviderLevel: [AgentProvider: ActivityLevel] = [:]
+    /// Live transcript sessions per file-backed provider, so we can end them promptly when the
+    /// provider's process disappears (the CLI was closed) rather than waiting for the file to go
+    /// stale — fish should vanish shortly after the agent actually stops.
+    private var liveFileSessions: [AgentProvider: Set<String>] = [:]
+    private var processGoneSince: [AgentProvider: Date] = [:]
+    /// How long a file-backed provider must show zero processes before its sessions are ended.
+    private let processGoneGrace: TimeInterval = 45
+    private static let fileBacked: [AgentProvider] = [.claude, .codex]
 
     public init(
         sources: [any AgentEventStreaming],
@@ -68,11 +76,14 @@ public actor DetectionCoordinator: AgentEventStreaming {
         switch event {
         case .sessionStarted(let d):
             fileBackedProviders.insert(d.key.provider)
+            if Self.fileBacked.contains(d.key.provider) {
+                liveFileSessions[d.key.provider, default: []].insert(d.key.sessionID)
+                processGoneSince[d.key.provider] = nil
+            }
         case .sessionEnded(let key, _):
-            // A provider is still file-backed if any other session remains; the store handles
-            // roster truth, so we simply keep the flag set — process scan stays suppressed while
-            // the CLI is installed, which is the desired behavior.
-            _ = key
+            // The store handles roster truth; we keep fileBackedProviders set so process scan stays
+            // suppressed while the CLI is installed. Drop the session from our liveness tracking.
+            liveFileSessions[key.provider]?.remove(key.sessionID)
         case .thought(let key, _):
             let now = Date()
             if let last = lastThoughtAt[key], now.timeIntervalSince(last) < 2 { return }
@@ -99,6 +110,38 @@ public actor DetectionCoordinator: AgentEventStreaming {
                 level: sample.level,
                 processCount: sample.processCount
             ))
+        }
+        endStaleFileSessions(samples, continuation: continuation)
+    }
+
+    /// Ends live transcript sessions whose CLI process has been gone for the grace period, so their
+    /// fish disappear shortly after the agent actually stops (not only when the file goes stale).
+    private func endStaleFileSessions(
+        _ samples: [AgentProvider: ProviderSample],
+        continuation: AsyncStream<AgentEvent>.Continuation
+    ) {
+        let now = Date()
+        for provider in Self.fileBacked {
+            guard let live = liveFileSessions[provider], !live.isEmpty else {
+                processGoneSince[provider] = nil
+                continue
+            }
+            let count = samples[provider]?.processCount ?? 0
+            if count > 0 {
+                processGoneSince[provider] = nil
+                continue
+            }
+            if let since = processGoneSince[provider] {
+                if now.timeIntervalSince(since) >= processGoneGrace {
+                    for sessionID in live {
+                        continuation.yield(.sessionEnded(SessionKey(provider: provider, sessionID: sessionID), at: now))
+                    }
+                    liveFileSessions[provider] = []
+                    processGoneSince[provider] = nil
+                }
+            } else {
+                processGoneSince[provider] = now
+            }
         }
     }
 }

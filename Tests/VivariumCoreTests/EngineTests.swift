@@ -51,18 +51,23 @@ struct EngineTests {
         #expect(out.state.fish[0].status == .planning)
         #expect(contains(out.events) { if case .fishAdded = $0 { true } else { false } })
 
+        // When the session ends the fish leaves the tank but its memory is kept dormant.
         out = advance(out.state, [.sessionEnded(key("s1"), at: t0.addingTimeInterval(10))], at: t0.addingTimeInterval(10))
         #expect(out.state.sessions.isEmpty)
-        #expect(out.state.fish.count == 1)
-        #expect(out.state.fish[0].status == .resting)
-        #expect(out.state.fish[0].currentSessionTitle == nil)
+        #expect(out.state.fish.isEmpty)
+        #expect(out.state.dormant.count == 1)
+        #expect(out.state.dormant[0].id == residentID)
+        #expect(out.state.dormant[0].status == .resting)
+        #expect(contains(out.events) { $0 == .fishRemoved(residentID) })
 
+        // A new session for the same project revives the dormant memory fish (sessionCount grows).
         out = advance(out.state, [.sessionStarted(descriptor("s2"))], at: t0.addingTimeInterval(20))
         #expect(out.state.fish.count == 1)
         #expect(out.state.fish[0].id == residentID)
         #expect(out.state.fish[0].sessionCount == 2)
         #expect(out.state.fish[0].status == .planning)
-        #expect(out.events.contains(.fishStatusChanged(residentID, .planning)))
+        #expect(out.state.dormant.isEmpty)
+        #expect(contains(out.events) { if case .fishAdded(let f) = $0 { f.id == residentID } else { false } })
     }
 
     @Test("Concurrent second session spawns an ephemeral fish removed on end")

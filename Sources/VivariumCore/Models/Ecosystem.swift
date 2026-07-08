@@ -186,7 +186,11 @@ public struct SessionBinding: Codable, Sendable, Equatable {
 
 /// The whole semantic world. Value type; advanced by `EcosystemEngine.advance`.
 public struct EcosystemState: Codable, Sendable, Equatable {
+    /// Fish currently visible in the tank — each is tied to a live agent session or activity.
     public var fish: [FishState]
+    /// Memory-fish stats for residents whose session has ended: not rendered, but preserved so a
+    /// returning (provider, project) agent revives its fish with accumulated growth and expertise.
+    public var dormant: [FishState]
     public var sessions: [SessionBinding]
     public var food: [FoodPellet]
     public var pearls: [Pearl]
@@ -206,6 +210,7 @@ public struct EcosystemState: Codable, Sendable, Equatable {
 
     public init(
         fish: [FishState] = [],
+        dormant: [FishState] = [],
         sessions: [SessionBinding] = [],
         food: [FoodPellet] = [],
         pearls: [Pearl] = [],
@@ -221,6 +226,7 @@ public struct EcosystemState: Codable, Sendable, Equatable {
         nextEntityID: Int = 1
     ) {
         self.fish = fish
+        self.dormant = dormant
         self.sessions = sessions
         self.food = food
         self.pearls = pearls

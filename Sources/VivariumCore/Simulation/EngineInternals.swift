@@ -101,6 +101,18 @@ enum EngineEventHandler {
                 state.fish[fi].model = descriptor.model
                 state.fish[fi].lastActiveAt = now
                 EngineSupport.setStatus(.planning, fishAt: fi, in: &state, events: &events)
+            } else if let di = state.dormant.firstIndex(where: { $0.id == residentID }) {
+                // Revive a dormant memory fish with its accumulated growth and expertise.
+                var revived = state.dormant.remove(at: di)
+                revived.sessionCount += 1
+                revived.currentSessionTitle = descriptor.title
+                revived.gitBranch = descriptor.gitBranch
+                revived.model = descriptor.model
+                revived.lastActiveAt = now
+                revived.status = .planning
+                revived.thought = nil
+                state.fish.append(revived)
+                events.append(.fishAdded(revived))
             } else {
                 let fish = FishState(
                     id: residentID,
@@ -174,13 +186,18 @@ enum EngineEventHandler {
         let binding = state.sessions.remove(at: bi)
         if let fi = EngineSupport.fishIndex(of: binding.fishID, in: state) {
             if state.fish[fi].isResident {
-                state.fish[fi].thought = nil
-                state.fish[fi].currentSessionTitle = nil
-                EngineSupport.setStatus(.resting, fishAt: fi, in: &state, events: &events)
-            } else {
-                state.fish.remove(at: fi)
-                events.append(.fishRemoved(binding.fishID))
+                // Preserve the memory fish's stats in dormant storage, then remove it from the tank
+                // so fish are only visible while their agent is actually running.
+                var dorm = state.fish[fi]
+                dorm.status = .resting
+                dorm.activityLevel = .sleeping
+                dorm.thought = nil
+                dorm.currentSessionTitle = nil
+                state.dormant.removeAll { $0.id == dorm.id }
+                state.dormant.append(dorm)
             }
+            state.fish.remove(at: fi)
+            events.append(.fishRemoved(binding.fishID))
         }
         EngineSupport.log(
             "\(key.provider.displayName) ended a session on \(binding.descriptor.projectDisplayName)",
@@ -595,7 +612,7 @@ enum EngineTicker {
         state.fish.removeAll { fish in
             guard fish.id.isProviderScan,
                   fish.status == .resting || fish.activityLevel == .sleeping,
-                  now.timeIntervalSince(fish.lastActiveAt) > 600
+                  now.timeIntervalSince(fish.lastActiveAt) > 40
             else { return false }
             removed.append(fish.id)
             return true

@@ -90,8 +90,11 @@ struct PersistenceTests {
     func sanitizeStripsTransientContent() throws {
         let sanitized = fullState().sanitizedForPersistence()
 
-        #expect(sanitized.fish.count == 1)
-        let resident = try #require(sanitized.fish.first)
+        // Fish are only visible while running, so none persist; the resident's memory is kept
+        // dormant (and revived when its agent runs again).
+        #expect(sanitized.fish.isEmpty)
+        #expect(sanitized.dormant.count == 1)
+        let resident = try #require(sanitized.dormant.first)
         #expect(resident.id == .resident(provider: .claude, projectKey: "/Users/dev/Vivarium"))
         #expect(resident.status == .resting)
         #expect(resident.activityLevel == .sleeping)
