@@ -47,3 +47,20 @@ public enum CodexParsing: TranscriptParsing {
         return stem
     }
 }
+
+public enum CopilotParsing: TranscriptParsing {
+    public static let provider: AgentProvider = .copilot
+    public static func makeContext(sessionID: String) -> CopilotParseContext {
+        CopilotParseContext(fallbackSessionID: sessionID)
+    }
+    public static func parse(line: String, context: inout CopilotParseContext, receivedAt: Date) -> [AgentEvent] {
+        CopilotSessionParser.parse(line: line, context: &context, receivedAt: receivedAt)
+    }
+    public static func descriptor(from context: CopilotParseContext) -> SessionDescriptor? { context.descriptor }
+    public static func turnEnded(_ context: CopilotParseContext) -> Bool { context.turnEnded }
+    public static func hasPending(_ context: CopilotParseContext) -> Bool { context.hasPendingTool }
+    public static func sessionID(from url: URL) -> String {
+        // session-state/<uuid>.jsonl → the uuid, which matches session.start's sessionId.
+        url.deletingPathExtension().lastPathComponent
+    }
+}

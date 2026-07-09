@@ -21,7 +21,7 @@ public actor DetectionCoordinator: AgentEventStreaming {
     private var processGoneSince: [AgentProvider: Date] = [:]
     /// How long a file-backed provider must show zero processes before its sessions are ended.
     private let processGoneGrace: TimeInterval = 45
-    private static let fileBacked: [AgentProvider] = [.claude, .codex]
+    private static let fileBacked: [AgentProvider] = [.claude, .codex, .copilot]
 
     public init(
         sources: [any AgentEventStreaming],
@@ -33,11 +33,12 @@ public actor DetectionCoordinator: AgentEventStreaming {
         self.scanInterval = scanInterval
     }
 
-    /// Builds the standard coordinator: Claude + Codex file monitors plus process scanning.
+    /// Builds the standard coordinator: Claude + Codex + Copilot file monitors plus process scanning.
     public static func standard() -> DetectionCoordinator {
         DetectionCoordinator(sources: [
             AgentSessionMonitor<ClaudeParsing>(config: .claude()),
             AgentSessionMonitor<CodexParsing>(config: .codex()),
+            AgentSessionMonitor<CopilotParsing>(config: .copilot()),
         ])
     }
 

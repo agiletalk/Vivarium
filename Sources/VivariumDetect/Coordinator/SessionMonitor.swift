@@ -38,6 +38,10 @@ public struct MonitorConfig: Sendable {
         MonitorConfig(roots: [codexRoot].compactMap { $0 }, maxDepth: 4)
     }
 
+    public static func copilot() -> MonitorConfig {
+        MonitorConfig(roots: [copilotRoot].compactMap { $0 }, maxDepth: 1)
+    }
+
     static var claudeRoot: URL? {
         let url = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".claude/projects", isDirectory: true)
@@ -47,6 +51,12 @@ public struct MonitorConfig: Sendable {
     static var codexRoot: URL? {
         let url = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent(".codex/sessions", isDirectory: true)
+        return FileManager.default.fileExists(atPath: url.path) ? url : nil
+    }
+
+    static var copilotRoot: URL? {
+        let url = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".copilot/session-state", isDirectory: true)
         return FileManager.default.fileExists(atPath: url.path) ? url : nil
     }
 }

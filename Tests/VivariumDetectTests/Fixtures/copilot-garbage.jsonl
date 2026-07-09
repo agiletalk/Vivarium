@@ -1,0 +1,7 @@
+not valid json at all
+{"nope":true,"still":"no type field"}
+{"type":"totally.unknown","data":{}}
+{"type":"weird.record"}
+{"type":"tool.execution_start","data":{"toolName":123}}
+12345
+{"type":"","data":{}}
