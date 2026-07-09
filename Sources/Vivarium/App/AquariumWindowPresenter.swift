@@ -20,9 +20,12 @@ final class AquariumWindowPresenter: NSObject, NSWindowDelegate {
 
         store.isAquariumVisible = true
         controller.setRenderActive(true)
+        // Become a regular app while the window is open so it appears in Cmd+Tab (and the Dock) and
+        // can be switched to; we drop back to `.accessory` (menu-bar-only) when it closes.
+        NSApp.setActivationPolicy(.regular)
         window.makeKeyAndOrderFront(nil)
-        // Accessory apps open windows behind the frontmost app without an explicit activation.
         NSApp.activate(ignoringOtherApps: true)
+        DebugTrace.log("openAquarium: activationPolicy=\(NSApp.activationPolicy().rawValue)")
     }
 
     private func makeWindow(controller: any AquariumHosting, store: VivariumStore) -> NSWindow {
@@ -65,6 +68,9 @@ final class AquariumWindowPresenter: NSObject, NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
         store?.isAquariumVisible = false
         controller?.setRenderActive(false)
+        // Return to menu-bar-only presence (out of Cmd+Tab and the Dock).
+        NSApp.setActivationPolicy(.accessory)
+        DebugTrace.log("windowWillClose: activationPolicy=\(NSApp.activationPolicy().rawValue)")
     }
 }
 
