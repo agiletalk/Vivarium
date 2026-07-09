@@ -52,16 +52,23 @@ struct MenuBarPopoverView: View {
 
     // MARK: - Fish list
 
+    /// Only agents that are currently running — idle/resting fish are hidden from the list even
+    /// while they linger in the tank.
+    private var runningFish: [FishState] {
+        store.state.fish.filter { $0.status != .resting }
+    }
+
     @ViewBuilder
     private var fishList: some View {
-        if store.state.fish.isEmpty {
+        let fish = runningFish
+        if fish.isEmpty {
             emptyState
         } else {
             ScrollView {
                 LazyVStack(spacing: 0) {
-                    ForEach(store.state.fish) { fish in
-                        FishRow(fish: fish)
-                        if fish.id != store.state.fish.last?.id {
+                    ForEach(fish) { item in
+                        FishRow(fish: item)
+                        if item.id != fish.last?.id {
                             Divider().padding(.leading, 52)
                         }
                     }
@@ -177,12 +184,21 @@ private struct DataSourcePill: View {
 private struct FishRow: View {
     let fish: FishState
 
+    /// Just the project name (the part after "Provider · "), or the whole label when there's no
+    /// project (e.g. a process-scan agent).
+    private var projectTitle: String {
+        if let range = fish.displayName.range(of: " · ", options: .backwards) {
+            return String(fish.displayName[range.upperBound...])
+        }
+        return fish.displayName
+    }
+
     var body: some View {
         HStack(spacing: 10) {
-            ProviderBadge(provider: fish.provider)
+            FishBadge(fish: fish)
 
             VStack(alignment: .leading, spacing: 3) {
-                Text(fish.displayName)
+                Text(projectTitle)
                     .font(.subheadline.weight(.medium))
                     .lineLimit(1)
                 Text(fish.status.humanized)
@@ -199,18 +215,22 @@ private struct FishRow: View {
     }
 }
 
-private struct ProviderBadge: View {
-    let provider: AgentProvider
+/// The row's left icon: the actual species fish over a faint tinted circle.
+private struct FishBadge: View {
+    let fish: FishState
 
     var body: some View {
-        Circle()
-            .fill(provider.tint.gradient)
-            .frame(width: 32, height: 32)
-            .overlay(
-                Text(provider.shortCode)
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(.white)
-            )
+        ZStack {
+            Circle().fill(fish.provider.tint.opacity(0.16))
+            if let image = FishThumbnail.image(species: fish.species, provider: fish.provider) {
+                Image(nsImage: image)
+                    .resizable()
+                    .interpolation(.high)
+                    .aspectRatio(contentMode: .fit)
+                    .padding(5)
+            }
+        }
+        .frame(width: 34, height: 34)
     }
 }
 
