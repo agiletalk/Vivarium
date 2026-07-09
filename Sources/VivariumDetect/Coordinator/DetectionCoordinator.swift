@@ -21,7 +21,7 @@ public actor DetectionCoordinator: AgentEventStreaming {
     private var processGoneSince: [AgentProvider: Date] = [:]
     /// How long a file-backed provider must show zero processes before its sessions are ended.
     private let processGoneGrace: TimeInterval = 45
-    private static let fileBacked: [AgentProvider] = [.claude, .codex, .copilot]
+    private static let fileBacked: [AgentProvider] = [.claude, .codex, .copilot, .opencode]
 
     public init(
         sources: [any AgentEventStreaming],
@@ -33,12 +33,14 @@ public actor DetectionCoordinator: AgentEventStreaming {
         self.scanInterval = scanInterval
     }
 
-    /// Builds the standard coordinator: Claude + Codex + Copilot file monitors plus process scanning.
+    /// Builds the standard coordinator: Claude + Codex + Copilot transcript monitors, the OpenCode
+    /// SQLite monitor, and process scanning.
     public static func standard() -> DetectionCoordinator {
         DetectionCoordinator(sources: [
             AgentSessionMonitor<ClaudeParsing>(config: .claude()),
             AgentSessionMonitor<CodexParsing>(config: .codex()),
             AgentSessionMonitor<CopilotParsing>(config: .copilot()),
+            OpenCodeSessionMonitor(config: .standard()),
         ])
     }
 
@@ -100,9 +102,10 @@ public actor DetectionCoordinator: AgentEventStreaming {
         for (provider, sample) in samples {
             // File-backed providers (claude/codex) get richer state from transcripts.
             guard !fileBackedProviders.contains(provider) else { continue }
-            // Only surface providers without a transcript source — detected purely by process scan.
-            guard provider == .gemini || provider == .cursor
-                    || provider == .opencode || provider == .copilot else { continue }
+            // Only surface providers without a live session source — detected purely by process scan.
+            // opencode has a rich SQLite session source (like claude/codex), so it is excluded here to
+            // avoid a coarse process-scan fish racing the real session into existence.
+            guard provider == .gemini || provider == .cursor || provider == .copilot else { continue }
             if lastProviderLevel[provider] == sample.level { continue }
             lastProviderLevel[provider] = sample.level
             continuation.yield(.providerActivity(

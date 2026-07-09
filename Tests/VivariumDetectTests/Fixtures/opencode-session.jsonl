@@ -1,0 +1,17 @@
+{"type":"session.created.1","data":{"info":{"id":"ses_test0001","directory":"/Users/dev/Reef","title":"New session - 2026-07-09T00:00:00.000Z","model":{"id":"gpt-5.4","providerID":"github-copilot","variant":"xhigh"},"agent":"build","time":{"created":1783576311218,"updated":1783576311218}}}}
+{"type":"message.updated.1","data":{"info":{"id":"msg_u1","sessionID":"ses_test0001","role":"user","time":{"created":1783576311231}}}}
+{"type":"message.part.updated.1","data":{"part":{"id":"prt_uprompt","sessionID":"ses_test0001","messageID":"msg_u1","type":"text","text":"Please fix the failing Reef test."}}}
+{"type":"message.part.updated.1","data":{"part":{"id":"prt_read","sessionID":"ses_test0001","messageID":"msg_a0","type":"tool","tool":"read","state":{"status":"pending","input":{}}}}}
+{"type":"message.part.updated.1","data":{"part":{"id":"prt_read","sessionID":"ses_test0001","messageID":"msg_a0","type":"tool","tool":"read","state":{"status":"running","input":{"filePath":"/Users/dev/Reef/Package.swift"}}}}}
+{"type":"message.part.updated.1","data":{"part":{"id":"prt_read","sessionID":"ses_test0001","messageID":"msg_a0","type":"tool","tool":"read","state":{"status":"completed","input":{"filePath":"/Users/dev/Reef/Package.swift"}}}}}
+{"type":"message.part.updated.1","data":{"part":{"id":"prt_bash","sessionID":"ses_test0001","messageID":"msg_a0","type":"tool","tool":"bash","state":{"status":"pending","input":{}}}}}
+{"type":"message.part.updated.1","data":{"part":{"id":"prt_bash","sessionID":"ses_test0001","messageID":"msg_a0","type":"tool","tool":"bash","state":{"status":"running","input":{"command":"npm test"}}}}}
+{"type":"message.part.updated.1","data":{"part":{"id":"prt_bash","sessionID":"ses_test0001","messageID":"msg_a0","type":"tool","tool":"bash","state":{"status":"completed","input":{"command":"npm test"},"metadata":{"exit":1}}}}}
+{"type":"message.part.updated.1","data":{"part":{"id":"prt_edit","sessionID":"ses_test0001","messageID":"msg_a0","type":"tool","tool":"edit","state":{"status":"pending","input":{}}}}}
+{"type":"message.part.updated.1","data":{"part":{"id":"prt_edit","sessionID":"ses_test0001","messageID":"msg_a0","type":"tool","tool":"edit","state":{"status":"running","input":{"filePath":"/Users/dev/Reef/Sources/Fix.swift"}}}}}
+{"type":"message.part.updated.1","data":{"part":{"id":"prt_edit","sessionID":"ses_test0001","messageID":"msg_a0","type":"tool","tool":"edit","state":{"status":"completed","input":{"filePath":"/Users/dev/Reef/Sources/Fix.swift"}}}}}
+{"type":"message.part.updated.1","data":{"part":{"id":"prt_text","sessionID":"ses_test0001","messageID":"msg_a2","type":"text","text":"Fixed the failing test and re-ran the suite."}}}
+{"type":"session.updated.1","data":{"info":{"id":"ses_test0001","directory":"/Users/dev/Reef","title":"Fix the failing Reef test","model":{"id":"gpt-5.4","providerID":"github-copilot","variant":"xhigh"},"agent":"build","time":{"created":1783576311218,"updated":1783576400000}}}}
+{"type":"sparkle.burst.1","data":{"nonsense":true}}
+{"type":"message.updated.1","data":{"info":{"id":"msg_a1","sessionID":"ses_test0001","role":"assistant","time":{"created":1783576410000,"completed":1783576420000},"finish":"tool-calls"}}}
+{"type":"message.updated.1","data":{"info":{"id":"msg_a2","sessionID":"ses_test0001","role":"assistant","time":{"created":1783576420000,"completed":1783576430000},"finish":"stop"}}}

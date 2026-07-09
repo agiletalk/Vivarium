@@ -1,0 +1,5 @@
+{"type":"message.part.updated.1","data":{"part":{"id":"x","type":"mystery"}}}
+{"type":"boom.event.9","data":{"whatever":1}}
+{"data":{"info":{}}}
+{"type":"session.updated.1","data":{"notinfo":true}}
+not-json-at-all
