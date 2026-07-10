@@ -31,8 +31,15 @@ if [[ "$MODE" == "--debug" || "$MODE" == "debug" ]]; then
   CONFIG="debug"
 fi
 
-swift build -c "$CONFIG"
-BUILD_BINARY="$(swift build -c "$CONFIG" --show-bin-path)/$APP_NAME"
+# Release builds are universal (arm64 + x86_64) for distribution; debug stays
+# native-arch for fast local iteration.
+ARCH_FLAGS=()
+if [[ "$CONFIG" == "release" ]]; then
+  ARCH_FLAGS=(--arch arm64 --arch x86_64)
+fi
+
+swift build -c "$CONFIG" "${ARCH_FLAGS[@]}"
+BUILD_BINARY="$(swift build -c "$CONFIG" "${ARCH_FLAGS[@]}" --show-bin-path)/$APP_NAME"
 
 rm -rf "$APP_BUNDLE"
 mkdir -p "$APP_MACOS" "$APP_RESOURCES"
