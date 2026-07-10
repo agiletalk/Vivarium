@@ -45,6 +45,17 @@ public enum EcosystemEngine {
         return EngineOutput(state: next, events: out)
     }
 
+    /// Drops a food pellet for every visible fish — the aquarium HUD "feed" test control.
+    /// Routes through the same food primitive as real task completion so fish eat and grow identically.
+    public static func feedAll(_ state: EcosystemState, now: Date) -> EngineOutput {
+        var next = state
+        var out: [EcosystemEvent] = []
+        for id in next.fish.map(\.id) {
+            EngineSupport.dropFood(for: id, in: &next, events: &out, now: now)
+        }
+        return EngineOutput(state: next, events: out)
+    }
+
     // MARK: - Implementation seams (filled in by the engine module)
 
     static func apply(

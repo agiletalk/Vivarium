@@ -43,4 +43,16 @@ public enum FishSpecies: String, Codable, Sendable, CaseIterable, Hashable {
     case pufferfish
     case dolphin
     case seaTurtle
+
+    /// Title-cased species name for the fish detail panel's "{provider} · {species}" pill.
+    public var displayName: String {
+        switch self {
+        case .whale: "Whale"
+        case .octopus: "Octopus"
+        case .jellyfish: "Jellyfish"
+        case .pufferfish: "Pufferfish"
+        case .dolphin: "Dolphin"
+        case .seaTurtle: "Sea Turtle"
+        }
+    }
 }

@@ -127,6 +127,17 @@ final class VivariumStore {
         commit(output)
     }
 
+    // MARK: - Aquarium HUD test controls
+
+    /// Drops a food pellet for every visible fish (via the engine's shared food primitive). Fish seek
+    /// and eat through the normal `.foodEaten` path, so residents grow and fatigue drops as with real
+    /// task completion. The manual shark and time-of-day previews stay in the scene (see AquariumScene)
+    /// so they never clobber the engine-owned bug-shark or wall-clock ambient state.
+    func feedAll() {
+        guard !state.fish.isEmpty else { return }
+        commit(EcosystemEngine.feedAll(state, now: Date()))
+    }
+
     func saveNow() {
         guard let persistence else { return }
         try? persistence.save(state.sanitizedForPersistence())

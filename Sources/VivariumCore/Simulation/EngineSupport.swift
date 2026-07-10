@@ -33,6 +33,20 @@ enum EngineSupport {
         events.append(.fishStatusChanged(state.fish[index].id, status))
     }
 
+    /// Drops one food pellet for a fish (consuming an entity ID) and emits `foodDropped`.
+    /// Shared by real task completion and the aquarium HUD "feed" control so both behave identically.
+    static func dropFood(
+        for fishID: FishID,
+        in state: inout EcosystemState,
+        events: inout [EcosystemEvent],
+        now: Date
+    ) {
+        let pellet = FoodPellet(id: state.nextEntityID, fish: fishID, createdAt: now)
+        state.nextEntityID += 1
+        state.food.append(pellet)
+        events.append(.foodDropped(pellet))
+    }
+
     /// Appends a log line (consuming one entity ID) and enforces the 20-line cap.
     static func log(_ message: String, in state: inout EcosystemState, now: Date) {
         let line = LogLine(id: state.nextEntityID, message: message, at: now)

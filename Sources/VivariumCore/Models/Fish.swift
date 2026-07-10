@@ -133,4 +133,13 @@ public struct FishState: Codable, Sendable, Equatable, Identifiable {
         self.gitBranch = gitBranch
         self.model = model
     }
+
+    /// Just the project portion of `displayName` (the part after the last " · "), or the whole
+    /// label when there is no project (e.g. a process-scan agent). Used by compact row/panel labels.
+    public var projectTitle: String {
+        if let range = displayName.range(of: " · ", options: .backwards) {
+            return String(displayName[range.upperBound...])
+        }
+        return displayName
+    }
 }

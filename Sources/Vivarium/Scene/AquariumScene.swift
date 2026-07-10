@@ -46,6 +46,12 @@ final class AquariumScene: SKScene {
     private var sharkActive = false
     private var sharkSeverity: Double = 0
     private var selectedFishID: FishID?
+    /// Set by the HUD time-of-day test control; while non-nil, engine wall-clock ambient changes
+    /// and reconciles no longer override the previewed lighting. Cleared (→ nil) resumes auto.
+    private var manualPhase: AmbientPhase?
+    /// Set by the HUD "test failure" control; shows a shark independent of the engine's bug state,
+    /// so toggling it never clears a genuine bug-shark.
+    private var manualShark = false
 
     private var lastUpdateTime: TimeInterval = 0
     private var isSetUp = false
@@ -125,7 +131,9 @@ final class AquariumScene: SKScene {
 
         isSetUp = true
         layoutWorld()
-        applyAmbient(currentAmbient, animated: false)
+        // Honor a phase preview requested before the scene finished setup (avoids a HUD/scene desync).
+        let initialPhase = manualPhase ?? currentAmbient.phase
+        applyAmbient(AmbientState(phase: initialPhase, weather: currentAmbient.weather), animated: false)
     }
 
     override func didChangeSize(_ oldSize: CGSize) {
@@ -368,7 +376,8 @@ final class AquariumScene: SKScene {
         case .reefStageChanged(let stage):
             setReefStage(stage)
         case .ambientChanged(let ambient):
-            applyAmbient(ambient, animated: true)
+            // A HUD phase preview takes precedence over engine wall-clock ambient changes.
+            if manualPhase == nil { applyAmbient(ambient, animated: true) }
         case .rareVisitorAppeared(let visitor):
             showVisitor(visitor.kind)
         case .rareVisitorLeft:
@@ -386,7 +395,7 @@ final class AquariumScene: SKScene {
             return
         }
 
-        applyAmbient(state.ambient, animated: false)
+        if manualPhase == nil { applyAmbient(state.ambient, animated: false) }
         setReefStage(state.reefStage)
 
         // Fish.
@@ -432,9 +441,11 @@ final class AquariumScene: SKScene {
             pearlNodes[id] = nil
         }
 
-        // Shark.
+        // Shark. A manual (HUD test) shark shows independently of the engine's bug state.
         if state.shark.isActive {
             showShark(severity: state.shark.severity)
+        } else if manualShark {
+            showShark(severity: 0.8)
         } else {
             hideShark()
         }
@@ -563,7 +574,28 @@ final class AquariumScene: SKScene {
 
     // MARK: - Ambient / reef
 
-    private func applyAmbient(_ ambient: AmbientState, animated: Bool) {
+    /// HUD test control: preview a lighting phase (`phase != nil`) pinned against the engine's
+    /// wall-clock ambient, or return to automatic (`phase == nil`, reverting to `autoPhase`).
+    /// `manualPhase` is set before the `isSetUp` guard so a pre-setup tap is honored in `setUp`.
+    func setPhaseOverride(_ phase: AmbientPhase?, autoPhase: AmbientPhase) {
+        manualPhase = phase
+        guard isSetUp else { return }
+        let target = phase ?? autoPhase
+        // Fast crossfade: this is an on-demand control, not the slow real-time day/night transition.
+        applyAmbient(AmbientState(phase: target, weather: currentAmbient.weather), animated: true, crossfade: 0.8)
+    }
+
+    /// HUD test control: show/hide a shark without touching the engine's bug-shark state.
+    func setManualShark(_ on: Bool) {
+        manualShark = on
+        if on {
+            showShark(severity: 0.8)
+        } else {
+            hideShark()
+        }
+    }
+
+    private func applyAmbient(_ ambient: AmbientState, animated: Bool, crossfade: TimeInterval = 90) {
         let phaseChanged = ambient.phase != currentAmbient.phase
         currentAmbient = ambient
 
@@ -572,7 +604,7 @@ final class AquariumScene: SKScene {
             gradientBack.alpha = 1
             gradientFront.texture = textures.gradient(for: ambient.phase)
             gradientFront.alpha = 0
-            gradientFront.run(.fadeIn(withDuration: animated ? 90 : 0.1))
+            gradientFront.run(.fadeIn(withDuration: animated ? crossfade : 0.1))
         }
 
         let rayFactor: CGFloat

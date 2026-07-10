@@ -19,6 +19,9 @@ final class FishNode: SKNode {
     private(set) var fatigue: Double
     private(set) var sizeScale: Double
 
+    private let bodySize: CGSize
+    /// Octopus/jellyfish sway horizontally by row; everyone else undulates vertically by slice.
+    private let isPendant: Bool
     private let bobPhase: Double
     private var bank: Double = 0
 
@@ -65,6 +68,8 @@ final class FishNode: SKNode {
         self.steering = FishSteeringState(position: SIMD2(Double(position.x), Double(position.y)), rng: &rng)
 
         let bodySize = TextureFactory.bodySize(for: state.species)
+        self.bodySize = bodySize
+        self.isPendant = state.species == .octopus || state.species == .jellyfish
         self.body = SKSpriteNode(texture: textures.body(
             species: state.species, provider: state.provider,
             legendary: state.isLegendary, memory: state.memory))
@@ -92,14 +97,16 @@ final class FishNode: SKNode {
         orientation.addChild(body)
         if let tail {
             tail.anchorPoint = CGPoint(x: 1, y: 0.5)
-            tail.position = CGPoint(x: -bodySize.width * 0.42 + 2, y: 0)
+            // Tuck the joint well inside the body silhouette so the (front) body covers the seam and
+            // the crescent reads as a continuous tail rather than a detached shape behind a gap.
+            tail.position = CGPoint(x: -bodySize.width * 0.42 + 9, y: 0)
             tail.zPosition = 0
             orientation.addChild(tail)
-            startTailSwish()
         }
 
         eye.texture = textures.eye()
-        eye.size = CGSize(width: 6, height: 6)
+        let eyeSize = 14 * TextureFactory.eyeScale(for: state.species)
+        eye.size = CGSize(width: eyeSize, height: eyeSize)
         eye.position = eyePosition(bodySize: bodySize)
         eye.zPosition = 2
         orientation.addChild(eye)
@@ -162,10 +169,59 @@ final class FishNode: SKNode {
         bank += (rawBank - bank) * min(1, dt * 6)
         orientation.zRotation = CGFloat(bank * next.flipSign)
 
-        if let tail {
-            let speed = (vx * vx + vy * vy).squareRoot()
-            let cruise = max(params.cruiseSpeed, 1)
-            tail.speed = CGFloat(max(0.3, min(2.2, speed / cruise)))
+        updateSwim(time: time, speed: (vx * vx + vy * vy).squareRoot())
+    }
+
+    /// Swim-cycle mesh deformation + tail swish synced to the same wave (1:1 with the design
+    /// aquarium-sim.js), so the body, fins, and tail undulate as one instead of the tail sliding
+    /// independently of a rigid body.
+    private func updateSwim(time: Double, speed: Double) {
+        let cruise = max(params.cruiseSpeed, 1)
+        let speedN = min(1.6, speed / cruise)
+        let swishHz = max(0.3, min(2.2, speed / cruise)) * 1.56
+        let wavePhase = time * swishHz * 2 * .pi + bobPhase
+
+        if isPendant {
+            // Horizontal sway by row — largest at the arm/tentacle tips (bottom).
+            let cols = 1, rows = 20
+            let ampBase = 0.06 * (0.5 + 0.5 * speedN) // normalized (body width cancels)
+            var dst = [SIMD2<Float>]()
+            dst.reserveCapacity((cols + 1) * (rows + 1))
+            for r in 0...rows {
+                let frac = 1 - Double(r) / Double(rows)
+                let dxw = sin(time * 2.0 + bobPhase + frac * 3.2) * ampBase * pow(frac, 1.7)
+                for c in 0...cols {
+                    dst.append(SIMD2(Float(Double(c) / Double(cols) + dxw), Float(Double(r) / Double(rows))))
+                }
+            }
+            body.warpGeometry = SKWarpGeometryGrid(columns: cols, rows: rows,
+                                                   sourcePositions: Self.rowSource, destinationPositions: dst)
+            if species == .jellyfish {
+                body.yScale = CGFloat(1 + 0.05 * sin(time * 2.4 + bobPhase))
+            }
+        } else {
+            // Vertical undulation by slice — largest at the tail (frac 0), travelling to the head.
+            let cols = 22, rows = 1
+            let ampMul: Double = species == .whale ? 0.05 : species == .dolphin ? 0.075
+                : species == .pufferfish ? 0.035 : 0.028
+            let ampBase = ampMul * (0.45 + 0.65 * speedN) // normalized (body height cancels)
+            var dst = [SIMD2<Float>]()
+            dst.reserveCapacity((cols + 1) * (rows + 1))
+            for r in 0...rows {
+                for c in 0...cols {
+                    let frac = Double(c) / Double(cols)
+                    let dyw = sin(wavePhase - frac * 4.2) * ampBase * (pow(1 - frac, 1.5) + 0.12)
+                    dst.append(SIMD2(Float(Double(c) / Double(cols)), Float(Double(r) + dyw)))
+                }
+            }
+            body.warpGeometry = SKWarpGeometryGrid(columns: cols, rows: rows,
+                                                   sourcePositions: Self.sliceSource, destinationPositions: dst)
+            // Tail swings in phase with the body's (large-amplitude) tail-end slices.
+            tail?.zRotation = CGFloat(sin(wavePhase) * 0.28)
+            // Eye rides the same wave at its own x-fraction.
+            let (efx, efy) = TextureFactory.eyeFraction(for: species)
+            let eyeDy = sin(wavePhase - (0.42 + Double(efx)) * 4.2) * Double(bodySize.height) * 0.012
+            eye.position = CGPoint(x: bodySize.width * efx, y: bodySize.height * efy + CGFloat(eyeDy))
         }
     }
 
@@ -295,15 +351,19 @@ final class FishNode: SKNode {
         }
     }
 
-    private func startTailSwish() {
-        guard let tail else { return }
-        let swish = SKAction.sequence([
-            .rotate(toAngle: 0.28, duration: 0.32),
-            .rotate(toAngle: -0.28, duration: 0.32),
-        ])
-        swish.timingMode = .easeInEaseOut
-        tail.run(.repeatForever(swish))
+    // Identity warp-grid source positions, cached per configuration.
+    private static func makeGridSource(cols: Int, rows: Int) -> [SIMD2<Float>] {
+        var s = [SIMD2<Float>]()
+        s.reserveCapacity((cols + 1) * (rows + 1))
+        for r in 0...rows {
+            for c in 0...cols {
+                s.append(SIMD2(Float(c) / Float(cols), Float(r) / Float(rows)))
+            }
+        }
+        return s
     }
+    private static let sliceSource = makeGridSource(cols: 22, rows: 1)
+    private static let rowSource = makeGridSource(cols: 1, rows: 20)
 
     private func startBlink() {
         let blink = SKAction.sequence([
@@ -315,14 +375,8 @@ final class FishNode: SKNode {
     }
 
     private func eyePosition(bodySize: CGSize) -> CGPoint {
-        switch species {
-        case .whale, .dolphin, .pufferfish:
-            CGPoint(x: bodySize.width * 0.24, y: bodySize.height * 0.14)
-        case .octopus, .jellyfish:
-            CGPoint(x: bodySize.width * 0.14, y: bodySize.height * 0.18)
-        case .seaTurtle:
-            // On the head, which pokes out toward the front-right.
-            CGPoint(x: bodySize.width * 0.44, y: 0)
-        }
+        // Design EYE2 offset from the (0.42, 0.5) body anchor (which sits at the orientation origin).
+        let (fx, fy) = TextureFactory.eyeFraction(for: species)
+        return CGPoint(x: bodySize.width * fx, y: bodySize.height * fy)
     }
 }

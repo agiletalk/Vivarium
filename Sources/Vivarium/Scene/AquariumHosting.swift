@@ -20,6 +20,12 @@ protocol AquariumHosting: AnyObject {
     /// Drives the energy policy: `false` pauses the scene entirely (window closed/occluded).
     func setRenderActive(_ active: Bool)
 
+    /// Aquarium HUD test controls (scene-local, so they never mutate engine-owned state):
+    /// preview a lighting phase (`nil` returns to automatic wall-clock lighting via `autoPhase`),
+    /// and show/hide a test-failure shark.
+    func setPhaseOverride(_ phase: AmbientPhase?, autoPhase: AmbientPhase)
+    func setManualShark(_ on: Bool)
+
     /// Reports spatial intents (`.foodEaten`, `.fishSelected`) up to the store.
     var onIntent: (@MainActor (SceneIntent) -> Void)? { get set }
 

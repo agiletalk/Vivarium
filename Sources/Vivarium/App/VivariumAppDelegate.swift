@@ -19,6 +19,7 @@ final class VivariumAppDelegate: NSObject, NSApplicationDelegate {
     private let qaOpenAquarium: Bool
     private let snapshotPath: String?
     private let verifyPopoverPath: String?
+    private let verifyAquariumPath: String?
 
     override init() {
         let config = LaunchConfiguration.fromProcess()
@@ -39,6 +40,7 @@ final class VivariumAppDelegate: NSObject, NSApplicationDelegate {
         self.qaOpenAquarium = config.qaOpenAquarium
         self.snapshotPath = config.snapshotPath
         self.verifyPopoverPath = config.verifyPopoverPath
+        self.verifyAquariumPath = config.verifyAquariumPath
 
         super.init()
         wireStoreToScene()
@@ -123,6 +125,33 @@ final class VivariumAppDelegate: NSObject, NSApplicationDelegate {
                     if let data = rep.representation(using: .png, properties: [:]) {
                         try? data.write(to: URL(fileURLWithPath: "/tmp/viv-settings.png"))
                         DebugTrace.log("settings: PNG written")
+                    }
+                }
+                try? await Task.sleep(for: .milliseconds(300))
+                NSApp.terminate(nil)
+            }
+        }
+
+        if let verifyAquariumPath {
+            // Open the aquarium, select a fish so the detail panel slides in, then render the
+            // window content (HUD overlays + panel) to PNG. SwiftUI chrome captures via cacheDisplay;
+            // the Metal-backed SKView region may render dark, which is fine — the scene has its own
+            // snapshot path (--vivarium-snapshot).
+            Task { [weak self] in
+                try? await Task.sleep(for: .seconds(3))
+                self?.openAquarium()
+                try? await Task.sleep(for: .milliseconds(600))
+                if let store = self?.store, let first = store.state.fish.first {
+                    store.selectedFishID = first.id
+                }
+                try? await Task.sleep(for: .milliseconds(900))
+                if let win = NSApp.windows.first(where: { $0.title == "Vivarium Aquarium" }),
+                   let view = win.contentView,
+                   let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
+                    view.cacheDisplay(in: view.bounds, to: rep)
+                    if let data = rep.representation(using: .png, properties: [:]) {
+                        try? data.write(to: URL(fileURLWithPath: verifyAquariumPath))
+                        DebugTrace.log("verifyAquarium: PNG written to \(verifyAquariumPath)")
                     }
                 }
                 try? await Task.sleep(for: .milliseconds(300))

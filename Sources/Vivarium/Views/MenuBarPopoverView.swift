@@ -2,6 +2,7 @@ import SwiftUI
 import VivariumCore
 
 /// The menu bar popover: header summary, a live list of fish, and the action footer.
+/// Styled to the "Shoal" design — dark translucent surface, reef progress, status pills.
 struct MenuBarPopoverView: View {
     let store: VivariumStore
     let onOpenAquarium: () -> Void
@@ -11,43 +12,71 @@ struct MenuBarPopoverView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            Divider()
+            Divider().overlay(Color.white.opacity(0.1))
             fishList
-            Divider()
+            Divider().overlay(Color.white.opacity(0.1))
             footer
         }
-        .frame(width: 326)
+        .frame(width: 340)
+        .background(Color(.sRGB, red: 0.173, green: 0.176, blue: 0.196, opacity: 1)) // #2C2D32 dark card
+        .environment(\.colorScheme, .dark)
         .onAppear { DebugTrace.log("MenuBarPopover APPEARED fish=\(store.state.fish.count)") }
     }
 
     // MARK: - Header
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 Text("Vivarium")
-                    .font(.headline)
-                DataSourcePill(mode: store.dataSourceMode)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.white)
+                headerPill
                 Spacer(minLength: 0)
+                Text(store.state.ambient.phase.lightingLabel)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.white.opacity(0.5))
             }
-            HStack(spacing: 6) {
-                Image(systemName: "circle.hexagongrid.fill")
-                    .foregroundStyle(.teal)
-                    .imageScale(.small)
-                Text(store.state.reefStage.displayName)
-                    .foregroundStyle(.secondary)
-                Spacer(minLength: 0)
-                Image(systemName: "checkmark.seal.fill")
-                    .foregroundStyle(.green)
-                    .imageScale(.small)
-                Text("\(store.state.totalTasksCompleted) done")
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
-            }
-            .font(.subheadline)
+            reefProgress
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        .padding(.top, 13)
+        .padding(.bottom, 11)
+    }
+
+    /// Data-source indicator: Demo / Idle badge, or a green "N active" (Live) pill.
+    @ViewBuilder
+    private var headerPill: some View {
+        switch store.dataSourceMode {
+        case .demo:
+            HeaderPill(label: "Demo", color: Color(.sRGB, red: 0.36, green: 0.60, blue: 0.95, opacity: 1))
+        case .idle:
+            HeaderPill(label: "Idle", color: .gray, showDot: false)
+        case .live:
+            HeaderPill(
+                label: store.activeFishCount > 0 ? "\(store.activeFishCount) active" : "Live",
+                color: Shoal.active
+            )
+        }
+    }
+
+    @ViewBuilder
+    private var reefProgress: some View {
+        let stage = store.state.reefStage
+        let completed = store.state.totalTasksCompleted
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 6) {
+                Text(stage.displayName)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Shoal.reefAccent)
+                Spacer(minLength: 0)
+                Text(stage.next.map { "\(completed) / \($0.threshold) → \($0.displayName)" } ?? "\(completed) tasks")
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.45))
+            }
+            let fraction: Double = stage.next.map { min(1, Double(completed) / Double(max(1, $0.threshold))) } ?? 1
+            ProgressCapsule(fraction: fraction, fill: Shoal.reefGradient)
+        }
     }
 
     // MARK: - Fish list
@@ -69,13 +98,13 @@ struct MenuBarPopoverView: View {
                     ForEach(fish) { item in
                         FishRow(fish: item)
                         if item.id != fish.last?.id {
-                            Divider().padding(.leading, 52)
+                            Divider().overlay(Color.white.opacity(0.06)).padding(.leading, 60)
                         }
                     }
                 }
                 .padding(.vertical, 4)
             }
-            .frame(maxHeight: 320)
+            .frame(maxHeight: 316)
         }
     }
 
@@ -83,12 +112,13 @@ struct MenuBarPopoverView: View {
         VStack(spacing: 8) {
             Image(systemName: "fish")
                 .font(.system(size: 30))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.white.opacity(0.4))
             Text("No agents swimming yet")
                 .font(.subheadline.weight(.medium))
+                .foregroundStyle(.white.opacity(0.85))
             Text("Start a Claude Code or Codex session to bring the reef to life.")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.white.opacity(0.5))
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
@@ -99,27 +129,42 @@ struct MenuBarPopoverView: View {
     // MARK: - Footer
 
     private var footer: some View {
-        VStack(spacing: 10) {
-            achievementsSummary
-
+        VStack(spacing: 8) {
             Button(action: onOpenAquarium) {
-                Label("Open Aquarium", systemImage: "water.waves")
-                    .frame(maxWidth: .infinity)
+                HStack(spacing: 6) {
+                    Image(systemName: "water.waves")
+                        .font(.system(size: 12, weight: .bold))
+                    Text("Open Aquarium")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                .foregroundStyle(Color(.sRGB, red: 0.016, green: 0.129, blue: 0.118, opacity: 1))
+                .frame(maxWidth: .infinity)
+                .frame(height: 30)
+                .background(
+                    LinearGradient(
+                        colors: [
+                            Color(.sRGB, red: 0.184, green: 0.761, blue: 0.706, opacity: 1),
+                            Color(.sRGB, red: 0.137, green: 0.635, blue: 0.588, opacity: 1),
+                        ],
+                        startPoint: .top, endPoint: .bottom
+                    ),
+                    in: RoundedRectangle(cornerRadius: 7, style: .continuous)
+                )
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
+            .buttonStyle(.plain)
 
             HStack(spacing: 8) {
-                Button(action: onOpenSettings) {
-                    Label("Settings…", systemImage: "gearshape")
-                        .frame(maxWidth: .infinity)
-                }
-                Button(action: onQuit) {
-                    Label("Quit", systemImage: "power")
-                        .frame(maxWidth: .infinity)
-                }
+                achievementsSummary
+                Spacer(minLength: 0)
+                Button("Settings…", action: onOpenSettings)
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.white.opacity(0.55))
+                Text("·").foregroundStyle(.white.opacity(0.2))
+                Button("Quit", action: onQuit)
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.white.opacity(0.55))
             }
-            .controlSize(.large)
+            .font(.system(size: 11))
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
@@ -127,166 +172,92 @@ struct MenuBarPopoverView: View {
 
     @ViewBuilder
     private var achievementsSummary: some View {
-        let achievements = store.state.achievements
-        HStack(spacing: 6) {
+        let count = store.state.achievements.count
+        HStack(spacing: 5) {
             Image(systemName: "trophy.fill")
-                .foregroundStyle(achievements.isEmpty ? Color.secondary : .yellow)
+                .foregroundStyle(count == 0 ? Color.white.opacity(0.35) : .yellow)
                 .imageScale(.small)
-            if let latest = achievements.last {
-                Text(latest.title)
-                    .lineLimit(1)
-                Spacer(minLength: 0)
-                Text("\(achievements.count)")
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
-            } else {
-                Text("No achievements yet")
-                    .foregroundStyle(.secondary)
-                Spacer(minLength: 0)
-            }
+            Text(count == 1 ? "1 achievement" : "\(count) achievements")
+                .foregroundStyle(.white.opacity(0.5))
         }
-        .font(.caption)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .font(.system(size: 10.5))
     }
 }
 
 // MARK: - Rows & pills
 
-private struct DataSourcePill: View {
-    let mode: DataSourceMode
-
+/// A small header status pill (green "N active", blue "Demo", gray "Idle").
+private struct HeaderPill: View {
+    let label: String
+    let color: Color
+    var showDot: Bool = true
     var body: some View {
-        Text(label)
-            .font(.caption2.weight(.semibold))
-            .padding(.horizontal, 7)
-            .padding(.vertical, 2)
-            .background(tint.opacity(0.18), in: Capsule())
-            .foregroundStyle(tint)
-    }
-
-    private var label: String {
-        switch mode {
-        case .live: "Live"
-        case .idle: "Idle"
-        case .demo: "Demo"
+        HStack(spacing: 4) {
+            if showDot { Circle().fill(color).frame(width: 5, height: 5) }
+            Text(label)
+                .font(.system(size: 10, weight: .semibold))
         }
-    }
-
-    private var tint: Color {
-        switch mode {
-        case .live: .green
-        case .idle: .gray
-        case .demo: .blue
-        }
+        .foregroundStyle(color)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 2)
+        .background(color.opacity(0.16), in: Capsule())
     }
 }
 
 private struct FishRow: View {
     let fish: FishState
 
-    /// Just the project name (the part after "Provider · "), or the whole label when there's no
-    /// project (e.g. a process-scan agent).
-    private var projectTitle: String {
-        if let range = fish.displayName.range(of: " · ", options: .backwards) {
-            return String(fish.displayName[range.upperBound...])
-        }
-        return fish.displayName
-    }
-
     var body: some View {
         HStack(spacing: 10) {
             FishBadge(fish: fish)
 
-            VStack(alignment: .leading, spacing: 3) {
-                Text(projectTitle)
-                    .font(.subheadline.weight(.medium))
-                    .lineLimit(1)
-                Text(fish.status.humanized)
-                    .font(.caption)
-                    .foregroundStyle(fish.status.isActive ? .primary : .secondary)
-                    .lineLimit(1)
-                FatigueBar(value: fish.fatigue)
+            VStack(alignment: .leading, spacing: 3.5) {
+                HStack(spacing: 6) {
+                    Text(fish.projectTitle)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                    Text(fish.provider.displayName)
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.4))
+                        .lineLimit(1)
+                }
+                HStack(spacing: 6) {
+                    StatusPill(status: fish.status)
+                    Spacer(minLength: 0)
+                    Text(String(format: "×%.2f", fish.size))
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.45))
+                }
+                ProgressCapsule(fraction: fish.fatigue, fill: Shoal.fatigue(fish.fatigue), height: 3)
             }
-
-            Spacer(minLength: 0)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
     }
 }
 
-/// The row's left icon: the actual species fish over a faint tinted circle.
+/// The row's left icon: the actual species fish over a faint tinted rounded square.
 private struct FishBadge: View {
     let fish: FishState
 
     var body: some View {
         ZStack {
-            Circle().fill(fish.provider.tint.opacity(0.16))
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .fill(Shoal.accent(fish.provider).opacity(0.15))
             if let image = FishThumbnail.image(species: fish.species, provider: fish.provider) {
                 Image(nsImage: image)
                     .resizable()
                     .interpolation(.high)
                     .aspectRatio(contentMode: .fit)
-                    .padding(5)
+                    .padding(4)
             }
         }
-        .frame(width: 34, height: 34)
-    }
-}
-
-private struct FatigueBar: View {
-    let value: Double
-
-    var body: some View {
-        GeometryReader { geo in
-            let clamped = min(max(value, 0), 1)
-            ZStack(alignment: .leading) {
-                Capsule()
-                    .fill(Color.secondary.opacity(0.18))
-                Capsule()
-                    .fill(tint)
-                    .frame(width: max(2, geo.size.width * clamped))
-            }
-        }
-        .frame(height: 3)
-    }
-
-    private var tint: Color {
-        switch value {
-        case ..<0.4: .green
-        case ..<0.75: .yellow
-        default: .orange
-        }
+        .frame(width: 36, height: 36)
     }
 }
 
 // MARK: - Display helpers
-
-extension AgentProvider {
-    var tint: Color {
-        switch self {
-        case .claude: .teal
-        case .codex: .orange
-        case .gemini: .purple
-        case .cursor: .pink
-        case .opencode: .blue
-        case .copilot: .green
-        case .gpt: .blue
-        }
-    }
-
-    var shortCode: String {
-        switch self {
-        case .claude: "Cl"
-        case .codex: "Cx"
-        case .gemini: "Gm"
-        case .cursor: "Cu"
-        case .opencode: "Oc"
-        case .copilot: "Cp"
-        case .gpt: "G"
-        }
-    }
-}
 
 extension AgentStatus {
     /// Human-facing present-tense phrasing for the popover.

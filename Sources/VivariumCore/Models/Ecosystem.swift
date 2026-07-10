@@ -90,6 +90,11 @@ public enum ReefStage: Int, Codable, Sendable, CaseIterable, Comparable {
     public static func stage(forCompletedTasks count: Int) -> ReefStage {
         ReefStage.allCases.last(where: { count >= $0.threshold }) ?? .sand
     }
+
+    /// The next stage in the progression, or nil at the final stage.
+    public var next: ReefStage? {
+        ReefStage(rawValue: rawValue + 1)
+    }
 }
 
 public enum AmbientPhase: String, Codable, Sendable, CaseIterable {

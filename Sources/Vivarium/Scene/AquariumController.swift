@@ -20,7 +20,7 @@ final class AquariumController: AquariumHosting {
     init(initialState: EcosystemState) {
         // Start at the aquarium window's content size so fish spawn into correct bounds even before
         // the view first lays out; .resizeFill + didChangeSize remapping handle any later resize.
-        let initialSize = CGSize(width: 1200, height: 760)
+        let initialSize = CGSize(width: 980, height: 640)
         skView = SKView(frame: CGRect(origin: .zero, size: initialSize))
         skView.autoresizingMask = [.width, .height]
         skView.ignoresSiblingOrder = true
@@ -51,6 +51,14 @@ final class AquariumController: AquariumHosting {
 
     func setRenderActive(_ active: Bool) {
         scene.setRenderActive(active)
+    }
+
+    func setPhaseOverride(_ phase: AmbientPhase?, autoPhase: AmbientPhase) {
+        scene.setPhaseOverride(phase, autoPhase: autoPhase)
+    }
+
+    func setManualShark(_ on: Bool) {
+        scene.setManualShark(on)
     }
 
     /// Renders the current scene contents straight to PNG data, bypassing screen capture

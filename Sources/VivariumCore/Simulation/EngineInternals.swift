@@ -246,10 +246,7 @@ enum EngineEventHandler {
         state.totalTasksCompleted += 1
         state.fish[fi].lastActiveAt = now
 
-        let pellet = FoodPellet(id: state.nextEntityID, fish: fishID, createdAt: now)
-        state.nextEntityID += 1
-        state.food.append(pellet)
-        events.append(.foodDropped(pellet))
+        EngineSupport.dropFood(for: fishID, in: &state, events: &events, now: now)
 
         // Memory: a new domain starts at level 1; an existing one levels up on every 5th
         // completed task of the fish (approximation of per-domain counts — see module notes).
