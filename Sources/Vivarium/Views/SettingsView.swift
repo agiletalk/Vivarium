@@ -85,6 +85,19 @@ private struct ProviderSettingsTab: View {
                 Toggle("Detect Codex sessions", isOn: $settings.providersCodexEnabled)
                 DirectoryStatus(path: "~/.codex", exists: Self.directoryExists("~/.codex"))
             }
+            Section("Copilot") {
+                Toggle("Detect Copilot sessions", isOn: $settings.providersCopilotEnabled)
+                DirectoryStatus(path: "~/.copilot", exists: Self.directoryExists("~/.copilot"))
+            }
+            Section("OpenCode") {
+                Toggle("Detect OpenCode sessions", isOn: $settings.providersOpencodeEnabled)
+                DirectoryStatus(path: "~/.local/share/opencode", exists: Self.directoryExists("~/.local/share/opencode"))
+            }
+            Section {
+                Text("Provider changes apply on next launch.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
         }
         .formStyle(.grouped)
     }

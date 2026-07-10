@@ -1,5 +1,6 @@
 import AppKit
 import Observation
+import QuartzCore
 import SwiftUI
 import VivariumCore
 
@@ -14,11 +15,20 @@ final class MenuBarController {
     private let statusItem: NSStatusItem
     private let popover = NSPopover()
     private let store: VivariumStore
+    private let settings: SettingsStore
     private let onOpenAquarium: () -> Void
     private let onOpenSettings: () -> Void
 
-    init(store: VivariumStore, onOpenAquarium: @escaping () -> Void, onOpenSettings: @escaping () -> Void) {
+    private static let pulseKey = "vivariumPulse"
+
+    init(
+        store: VivariumStore,
+        settings: SettingsStore,
+        onOpenAquarium: @escaping () -> Void,
+        onOpenSettings: @escaping () -> Void
+    ) {
         self.store = store
+        self.settings = settings
         self.onOpenAquarium = onOpenAquarium
         self.onOpenSettings = onOpenSettings
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -67,13 +77,16 @@ final class MenuBarController {
         return image
     }
 
-    /// Reactively refreshes the icon (and count) when the store's activity changes.
+    /// Reactively refreshes the icon (and count) when the store's activity — or the animation/
+    /// low-power preferences — change.
     private func observeActivity() {
         let active = store.hasActiveAgents
         let count = store.activeFishCount
         withObservationTracking {
             _ = store.hasActiveAgents
             _ = store.activeFishCount
+            _ = settings.menuBarAnimation
+            _ = settings.energyLowPower
         } onChange: { [weak self] in
             Task { @MainActor in
                 self?.refreshButton()
@@ -84,6 +97,7 @@ final class MenuBarController {
             button.image = icon(active: active)
             button.title = count > 1 ? " \(count)" : ""
         }
+        updatePulse()
     }
 
     private func refreshButton() {
@@ -91,6 +105,38 @@ final class MenuBarController {
         button.image = icon(active: store.hasActiveAgents)
         let count = store.activeFishCount
         button.title = count > 1 ? " \(count)" : ""
+        updatePulse()
+    }
+
+    // MARK: - Menu bar pulse
+
+    /// Subtle opacity pulse on the status item while agents are active — gated on the
+    /// `menuBarAnimation` preference and suppressed in low-power mode.
+    private func updatePulse() {
+        let shouldPulse = settings.menuBarAnimation && !settings.energyLowPower && store.hasActiveAgents
+        if shouldPulse {
+            startPulse()
+        } else {
+            stopPulse()
+        }
+    }
+
+    private func startPulse() {
+        guard let button = statusItem.button else { return }
+        button.wantsLayer = true
+        guard button.layer?.animation(forKey: Self.pulseKey) == nil else { return }
+        let pulse = CABasicAnimation(keyPath: "opacity")
+        pulse.fromValue = 1.0
+        pulse.toValue = 0.35
+        pulse.duration = 0.85
+        pulse.autoreverses = true
+        pulse.repeatCount = .infinity
+        pulse.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        button.layer?.add(pulse, forKey: Self.pulseKey)
+    }
+
+    private func stopPulse() {
+        statusItem.button?.layer?.removeAnimation(forKey: Self.pulseKey)
     }
 
     @objc private func togglePopover() {

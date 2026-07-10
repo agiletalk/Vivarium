@@ -14,6 +14,12 @@ final class SettingsStore {
     var providersCodexEnabled: Bool {
         didSet { defaults.set(providersCodexEnabled, forKey: Keys.providersCodexEnabled) }
     }
+    var providersCopilotEnabled: Bool {
+        didSet { defaults.set(providersCopilotEnabled, forKey: Keys.providersCopilotEnabled) }
+    }
+    var providersOpencodeEnabled: Bool {
+        didSet { defaults.set(providersOpencodeEnabled, forKey: Keys.providersOpencodeEnabled) }
+    }
     var demoMode: Bool {
         didSet { defaults.set(demoMode, forKey: Keys.demoMode) }
     }
@@ -33,6 +39,8 @@ final class SettingsStore {
         self.defaults = defaults
         self.providersClaudeEnabled = defaults.object(forKey: Keys.providersClaudeEnabled) as? Bool ?? true
         self.providersCodexEnabled = defaults.object(forKey: Keys.providersCodexEnabled) as? Bool ?? true
+        self.providersCopilotEnabled = defaults.object(forKey: Keys.providersCopilotEnabled) as? Bool ?? true
+        self.providersOpencodeEnabled = defaults.object(forKey: Keys.providersOpencodeEnabled) as? Bool ?? true
         self.demoMode = defaults.bool(forKey: Keys.demoMode)
         self.menuBarAnimation = defaults.bool(forKey: Keys.menuBarAnimation)
         self.energyLowPower = defaults.bool(forKey: Keys.energyLowPower)
@@ -69,6 +77,8 @@ final class SettingsStore {
     private enum Keys {
         static let providersClaudeEnabled = "providersClaudeEnabled"
         static let providersCodexEnabled = "providersCodexEnabled"
+        static let providersCopilotEnabled = "providersCopilotEnabled"
+        static let providersOpencodeEnabled = "providersOpencodeEnabled"
         static let demoMode = "demoMode"
         static let menuBarAnimation = "menuBarAnimation"
         static let energyLowPower = "energyLowPower"

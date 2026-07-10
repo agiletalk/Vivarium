@@ -315,13 +315,39 @@ final class AquariumScene: SKScene {
 
     // MARK: - Energy
 
+    /// Low-power mode caps rendering at 30fps (vs 60) and drops the ambient effect layers (bubble
+    /// columns, god rays, night plankton) to cut GPU/battery cost. Applied while the scene is
+    /// actively rendering; toggling it live re-caps and re-budgets immediately.
+    private var lowPowerMode = false
+
+    private var targetFramesPerSecond: Int { lowPowerMode ? 30 : 60 }
+
     func setRenderActive(_ active: Bool) {
         isPaused = !active
         view?.isPaused = !active
         if active {
-            view?.preferredFramesPerSecond = 60
+            view?.preferredFramesPerSecond = targetFramesPerSecond
             lastUpdateTime = 0
         }
+    }
+
+    func setLowPowerMode(_ on: Bool) {
+        guard lowPowerMode != on else { return }
+        lowPowerMode = on
+        // Re-cap immediately if we're currently rendering; otherwise the next setRenderActive picks it up.
+        if !isPaused {
+            view?.preferredFramesPerSecond = targetFramesPerSecond
+        }
+        applyEffectBudget()
+    }
+
+    /// Hides the ambient effect layers in low-power mode. God rays use `isHidden` (not alpha) because
+    /// `applyAmbient` animates the god-ray layer's alpha per phase; the bubble layer is also paused so
+    /// its emitters (and any night plankton it hosts) stop simulating, not just drawing.
+    private func applyEffectBudget() {
+        godRaysLayer.isHidden = lowPowerMode
+        bubblesLayer.isHidden = lowPowerMode
+        bubblesLayer.isPaused = lowPowerMode
     }
 
     // MARK: - Events

@@ -53,6 +53,10 @@ final class AquariumController: AquariumHosting {
         scene.setRenderActive(active)
     }
 
+    func setLowPowerMode(_ on: Bool) {
+        scene.setLowPowerMode(on)
+    }
+
     func setPhaseOverride(_ phase: AmbientPhase?, autoPhase: AmbientPhase) {
         scene.setPhaseOverride(phase, autoPhase: autoPhase)
     }

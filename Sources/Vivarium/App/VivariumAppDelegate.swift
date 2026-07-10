@@ -26,16 +26,29 @@ final class VivariumAppDelegate: NSObject, NSApplicationDelegate {
         let persistence = StatePersistence(
             fileURL: config.stateFileOverride ?? StatePersistence.defaultFileURL()
         )
-        let liveSource: (any AgentEventStreaming)? = config.forceDemo ? nil : DetectionCoordinator.standard()
+        // Settings are built first so the store/detection wiring can honor persisted preferences.
+        let settings = SettingsStore()
+        // Demo mode (setting or launch flag) shows the scripted demo instead of live detection.
+        let forceDemo = config.forceDemo || settings.demoMode
+        // Only build session sources for enabled providers; each follows its own settings toggle.
+        var enabledProviders: Set<AgentProvider> = []
+        if settings.providersClaudeEnabled { enabledProviders.insert(.claude) }
+        if settings.providersCodexEnabled { enabledProviders.insert(.codex) }
+        if settings.providersCopilotEnabled { enabledProviders.insert(.copilot) }
+        if settings.providersOpencodeEnabled { enabledProviders.insert(.opencode) }
+
+        let liveSource: (any AgentEventStreaming)? = forceDemo
+            ? nil
+            : DetectionCoordinator.standard(enabledProviders: enabledProviders)
         let demoSource = DemoEventScript()
 
         self.store = VivariumStore(
             liveSource: liveSource,
             demoSource: demoSource,
             persistence: persistence,
-            forceDemo: config.forceDemo
+            forceDemo: forceDemo
         )
-        self.settings = SettingsStore()
+        self.settings = settings
         self.controller = makeAquariumController(initialState: store.state)
         self.qaOpenAquarium = config.qaOpenAquarium
         self.snapshotPath = config.snapshotPath
@@ -45,7 +58,7 @@ final class VivariumAppDelegate: NSObject, NSApplicationDelegate {
         super.init()
         wireStoreToScene()
         vivariumLog.log("AppDelegate.init done")
-        DebugTrace.log("AppDelegate.init done forceDemo=\(config.forceDemo) fish=\(self.store.state.fish.count)")
+        DebugTrace.log("AppDelegate.init done forceDemo=\(forceDemo) providers=\(enabledProviders.count) fish=\(self.store.state.fish.count)")
     }
 
     private func wireStoreToScene() {
@@ -69,9 +82,13 @@ final class VivariumAppDelegate: NSObject, NSApplicationDelegate {
 
         menuBar = MenuBarController(
             store: store,
+            settings: settings,
             onOpenAquarium: { [weak self] in self?.openAquarium() },
             onOpenSettings: { [weak self] in self?.openSettings() }
         )
+
+        // Push the low-power preference into the scene and keep it in sync as the user toggles it.
+        observeLowPowerMode()
 
         if qaOpenAquarium || snapshotPath != nil {
             Task { [weak self] in
@@ -178,6 +195,16 @@ final class VivariumAppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         store.stop()
+    }
+
+    /// Applies `energyLowPower` to the scene and re-applies whenever the setting changes.
+    private func observeLowPowerMode() {
+        controller.setLowPowerMode(settings.energyLowPower)
+        withObservationTracking {
+            _ = settings.energyLowPower
+        } onChange: { [weak self] in
+            Task { @MainActor in self?.observeLowPowerMode() }
+        }
     }
 
     func openAquarium() {

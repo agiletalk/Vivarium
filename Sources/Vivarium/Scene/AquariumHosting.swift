@@ -20,6 +20,9 @@ protocol AquariumHosting: AnyObject {
     /// Drives the energy policy: `false` pauses the scene entirely (window closed/occluded).
     func setRenderActive(_ active: Bool)
 
+    /// Low-power mode: caps the render frame rate (30fps instead of 60) to save battery.
+    func setLowPowerMode(_ on: Bool)
+
     /// Aquarium HUD test controls (scene-local, so they never mutate engine-owned state):
     /// preview a lighting phase (`nil` returns to automatic wall-clock lighting via `autoPhase`),
     /// and show/hide a test-failure shark.

@@ -34,14 +34,26 @@ public actor DetectionCoordinator: AgentEventStreaming {
     }
 
     /// Builds the standard coordinator: Claude + Codex + Copilot transcript monitors, the OpenCode
-    /// SQLite monitor, and process scanning.
-    public static func standard() -> DetectionCoordinator {
-        DetectionCoordinator(sources: [
-            AgentSessionMonitor<ClaudeParsing>(config: .claude()),
-            AgentSessionMonitor<CodexParsing>(config: .codex()),
-            AgentSessionMonitor<CopilotParsing>(config: .copilot()),
-            OpenCodeSessionMonitor(config: .standard()),
-        ])
+    /// SQLite monitor, and process scanning. Only the providers in `enabledProviders` get a session
+    /// source (defaults to all); a disabled provider is simply never watched. Process scanning still
+    /// runs, but its coarse gemini/cursor/copilot fallback is unaffected by this file-source filter.
+    public static func standard(
+        enabledProviders: Set<AgentProvider> = Set(AgentProvider.allCases)
+    ) -> DetectionCoordinator {
+        var sources: [any AgentEventStreaming] = []
+        if enabledProviders.contains(.claude) {
+            sources.append(AgentSessionMonitor<ClaudeParsing>(config: .claude()))
+        }
+        if enabledProviders.contains(.codex) {
+            sources.append(AgentSessionMonitor<CodexParsing>(config: .codex()))
+        }
+        if enabledProviders.contains(.copilot) {
+            sources.append(AgentSessionMonitor<CopilotParsing>(config: .copilot()))
+        }
+        if enabledProviders.contains(.opencode) {
+            sources.append(OpenCodeSessionMonitor(config: .standard()))
+        }
+        return DetectionCoordinator(sources: sources)
     }
 
     public nonisolated func events() -> AsyncStream<AgentEvent> {
