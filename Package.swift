@@ -19,5 +19,9 @@ let package = Package(
             dependencies: ["VivariumDetect"],
             resources: [.copy("Fixtures")]
         ),
+        .testTarget(
+            name: "VivariumAppTests",
+            dependencies: ["Vivarium", "VivariumCore"]
+        ),
     ]
 )
