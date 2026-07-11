@@ -87,7 +87,7 @@ swift test                     # Core/Detect/App 유닛 테스트
 
 Xcode에서 열려면 `Package.swift`를 열고 `Vivarium` 스킴 실행. 앱은 Dock에 안 뜨고 메뉴바 아이콘으로만 나타납니다.
 
-> 릴리스로 받은 `.app`은 ad-hoc 서명(미공증)이라 macOS가 격리할 수 있습니다. "손상되어 열 수 없습니다"가 뜨면 `xattr -dr com.apple.quarantine /Applications/Vivarium.app` 후 실행하세요.
+> **설치(사용자)** — `brew install --cask agiletalk/tap/vivarium` (Homebrew; quarantine 자동 해제). 또는 [Releases](https://github.com/agiletalk/Vivarium/releases)에서 `Vivarium.zip`을 직접 받으세요. 직접 받은 `.app`은 ad-hoc 서명(미공증)이라 "손상되어 열 수 없습니다"가 뜨면 `xattr -dr com.apple.quarantine /Applications/Vivarium.app` 후 실행하세요.
 
 ## 표시 규칙 & 상태 저장
 
