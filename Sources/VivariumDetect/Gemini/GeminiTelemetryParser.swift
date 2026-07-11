@@ -372,12 +372,15 @@ public enum GeminiTelemetryParser {
         case "replace", "edit":
             let path = args?["file_path"]?.stringValue ?? args?["absolute_path"]?.stringValue
             return ToolPlan(status: .coding, bubble: "Editing \(baseName(path) ?? "file")", domain: domain(forPath: path))
-        case "search_file_content":
+        case "search_file_content", "grep_search":
             let pattern = args?["pattern"]?.stringValue ?? ""
             return ToolPlan(status: .searching, bubble: pattern.isEmpty ? "Searching…" : "Searching \(pattern)")
-        case "glob", "list_directory":
+        case "glob":
             let pattern = args?["pattern"]?.stringValue
-            return ToolPlan(status: .searching, bubble: pattern.map { "Finding \($0)" } ?? "Listing files")
+            return ToolPlan(status: .searching, bubble: pattern.map { "Finding \($0)" } ?? "Finding files")
+        case "list_directory":
+            let dir = baseName(args?["dir_path"]?.stringValue ?? args?["path"]?.stringValue)
+            return ToolPlan(status: .searching, bubble: dir.map { "Listing \($0)" } ?? "Listing files")
         case "web_fetch":
             let host = URL(string: args?["url"]?.stringValue ?? args?["prompt"]?.stringValue ?? "")?.host
             return ToolPlan(status: .searching, bubble: host.map { "Fetching \($0)" } ?? "Fetching…")
