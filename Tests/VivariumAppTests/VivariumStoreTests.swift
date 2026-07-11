@@ -34,6 +34,32 @@ struct VivariumStoreTests {
         )
     }
 
+    private func waitingFish(_ id: String, status: AgentStatus, waitKind: WaitKind? = nil, idleSeconds: TimeInterval) -> FishState {
+        FishState(
+            id: FishID(rawValue: id),
+            provider: .claude,
+            displayName: "Claude · \(id)",
+            isResident: true,
+            status: status,
+            waitKind: waitKind,
+            lastActiveAt: t0.addingTimeInterval(-idleSeconds),
+            createdAt: t0.addingTimeInterval(-idleSeconds)
+        )
+    }
+
+    @Test("settledWaitingCount counts only long-settled, non-permission-prompt waits")
+    func settledWaitingCount() {
+        let fish: [FishState] = [
+            waitingFish("settled", status: .waiting, idleSeconds: 30),                              // ✓
+            waitingFish("fresh", status: .waiting, idleSeconds: 3),                                 // ✗ between-turn blip
+            waitingFish("permission", status: .waiting, waitKind: .permissionPrompt, idleSeconds: 60), // ✗ excluded kind
+            waitingFish("coding", status: .coding, idleSeconds: 30),                                // ✗ not waiting
+            waitingFish("endturn", status: .waiting, waitKind: .endOfTurn, idleSeconds: 30),        // ✓
+        ]
+        #expect(VivariumStore.settledWaitingCount(fish: fish, now: t0) == 2)
+        #expect(VivariumStore.settledWaitingCount(fish: [], now: t0) == 0)
+    }
+
     private func makeStore(
         liveSource: (any AgentEventStreaming)? = nil,
         demoSource: (any AgentEventStreaming)? = nil,

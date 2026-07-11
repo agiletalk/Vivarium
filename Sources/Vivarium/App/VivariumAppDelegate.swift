@@ -15,6 +15,7 @@ final class VivariumAppDelegate: NSObject, NSApplicationDelegate {
     let presenter = AquariumWindowPresenter()
     private let settingsWindow = SettingsWindowController()
     private var menuBar: MenuBarController?
+    private var waitingNotifier: WaitingNotifier?
 
     private let qaOpenAquarium: Bool
     private let snapshotPath: String?
@@ -87,6 +88,9 @@ final class VivariumAppDelegate: NSObject, NSApplicationDelegate {
             onOpenAquarium: { [weak self] in self?.openAquarium() },
             onOpenSettings: { [weak self] in self?.openSettings() }
         )
+
+        // Notify when an agent finishes its turn and is waiting for input (opt-in).
+        waitingNotifier = WaitingNotifier(store: store, settings: settings)
 
         // Push the low-power preference into the scene and keep it in sync as the user toggles it.
         observeLowPowerMode()

@@ -32,6 +32,12 @@ struct MenuBarPopoverView: View {
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(.white)
                 headerPill
+                if store.agentsWaitingForUser > 0 {
+                    HeaderPill(
+                        label: "\(store.agentsWaitingForUser) waiting",
+                        color: Color(.sRGB, red: 0.98, green: 0.74, blue: 0.28, opacity: 1)
+                    )
+                }
                 Spacer(minLength: 0)
                 Text(store.state.ambient.phase.lightingLabel)
                     .font(.system(size: 11))

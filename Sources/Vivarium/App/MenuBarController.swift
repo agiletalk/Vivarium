@@ -41,7 +41,7 @@ final class MenuBarController {
 
     private func configureButton() {
         guard let button = statusItem.button else { return }
-        button.image = icon(active: store.hasActiveAgents)
+        button.image = icon(filled: store.hasActiveAgents)
         button.image?.isTemplate = true
         button.imagePosition = .imageLeading
         button.target = self
@@ -70,8 +70,8 @@ final class MenuBarController {
         )
     }
 
-    private func icon(active: Bool) -> NSImage? {
-        let name = active ? "fish.fill" : "fish"
+    private func icon(filled: Bool) -> NSImage? {
+        let name = filled ? "fish.fill" : "fish"
         let image = NSImage(systemSymbolName: name, accessibilityDescription: "Vivarium")
         image?.isTemplate = true
         return image
@@ -80,11 +80,10 @@ final class MenuBarController {
     /// Reactively refreshes the icon (and count) when the store's activity — or the animation/
     /// low-power preferences — change.
     private func observeActivity() {
-        let active = store.hasActiveAgents
-        let count = store.activeFishCount
         withObservationTracking {
             _ = store.hasActiveAgents
             _ = store.activeFishCount
+            _ = store.agentsWaitingForUser
             _ = settings.menuBarAnimation
             _ = settings.energyLowPower
         } onChange: { [weak self] in
@@ -93,18 +92,18 @@ final class MenuBarController {
                 self?.observeActivity()
             }
         }
-        if let button = statusItem.button {
-            button.image = icon(active: active)
-            button.title = count > 1 ? " \(count)" : ""
-        }
-        updatePulse()
+        refreshButton()
     }
 
+    /// The badge prioritizes the actionable "waiting for you" count; otherwise it shows the active
+    /// count (2+). The icon is filled while any agent is present (active or waiting for you).
     private func refreshButton() {
         guard let button = statusItem.button else { return }
-        button.image = icon(active: store.hasActiveAgents)
-        let count = store.activeFishCount
-        button.title = count > 1 ? " \(count)" : ""
+        let waiting = store.agentsWaitingForUser
+        let active = store.activeFishCount
+        button.image = icon(filled: store.hasActiveAgents || waiting > 0)
+        button.title = waiting > 0 ? " \(waiting)" : (active > 1 ? " \(active)" : "")
+        button.toolTip = waiting > 0 ? "Vivarium — \(waiting) waiting for you" : "Vivarium"
         updatePulse()
     }
 

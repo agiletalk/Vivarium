@@ -71,6 +71,9 @@ public struct FishState: Codable, Sendable, Equatable, Identifiable {
     /// Resident memory fish persist and accumulate expertise; ephemeral schoolmates don't.
     public var isResident: Bool
     public var status: AgentStatus
+    /// Why the agent is `.waiting`, when known. `.permissionPrompt` is heuristic (a tool has been
+    /// quiet a while) and indistinguishable from a slow autonomous tool, so the notifier ignores it.
+    public var waitKind: WaitKind?
     public var thought: ThoughtBubble?
     /// Body scale, 1.0...1.45. Grows with eaten food.
     public var size: Double
@@ -96,6 +99,7 @@ public struct FishState: Codable, Sendable, Equatable, Identifiable {
         projectKey: String? = nil,
         isResident: Bool,
         status: AgentStatus = .resting,
+        waitKind: WaitKind? = nil,
         thought: ThoughtBubble? = nil,
         size: Double = 1.0,
         fatigue: Double = 0,
@@ -118,6 +122,7 @@ public struct FishState: Codable, Sendable, Equatable, Identifiable {
         self.projectKey = projectKey
         self.isResident = isResident
         self.status = status
+        self.waitKind = waitKind
         self.thought = thought
         self.size = size
         self.fatigue = fatigue

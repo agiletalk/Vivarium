@@ -66,6 +66,13 @@ private struct GeneralSettingsTab: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
+
+            Section {
+                Toggle("Notify when an agent needs you", isOn: $settings.notifyWhenWaiting)
+                Text("Sends a notification when an agent finishes its turn and is waiting for your input.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
         }
         .formStyle(.grouped)
         .onAppear { settings.refreshLaunchAtLogin() }

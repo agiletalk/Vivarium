@@ -24,9 +24,10 @@ enum EngineEventHandler {
             applyTaskCompleted(key, domain: domain, summary: summary, to: &state, events: &events, now: now, rng: &rng)
         case .taskFailed(let key, let reason):
             applyTaskFailed(key, reason: reason, to: &state, events: &events, now: now)
-        case .waitingForUser(let key, _):
+        case .waitingForUser(let key, let kind):
             if let fi = EngineSupport.boundFishIndex(forKey: key, in: state) {
                 EngineSupport.setStatus(.waiting, fishAt: fi, in: &state, events: &events)
+                state.fish[fi].waitKind = kind
             }
         case .handoff(let key, let subagentType, _):
             applyHandoff(key, subagentType: subagentType, to: &state, events: &events, now: now)

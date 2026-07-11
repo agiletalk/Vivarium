@@ -29,6 +29,8 @@ enum EngineSupport {
         events: inout [EcosystemEvent]
     ) {
         guard state.fish[index].status != status else { return }
+        // Leaving `.waiting` clears the stale wait reason so it never lingers on active work.
+        if status != .waiting { state.fish[index].waitKind = nil }
         state.fish[index].status = status
         events.append(.fishStatusChanged(state.fish[index].id, status))
     }

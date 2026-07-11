@@ -39,6 +39,25 @@ final class VivariumStore {
         state.fish.count { $0.status.isActive || $0.activityLevel.isActive }
     }
 
+    /// How long a fish must stay `.waiting` before it counts as genuinely blocked on you. `.waiting`
+    /// blips between an agent's tool turns, so an instantaneous count would flicker during active work.
+    static let waitingSettleInterval: TimeInterval = 15
+
+    /// Agents that finished their turn and have stayed blocked on your input long enough to be real
+    /// (not a between-turn blip, and not the heuristic permission-prompt wait). Recomputed each tick;
+    /// drives the menu bar "needs you" badge and the popover pill.
+    private(set) var agentsWaitingForUser = 0
+
+    /// Fish genuinely blocked on you: `.waiting` for at least `waitingSettleInterval`, excluding the
+    /// heuristic permission-prompt wait (indistinguishable from a slow autonomous tool).
+    static func settledWaitingCount(fish: [FishState], now: Date) -> Int {
+        fish.count {
+            $0.status == .waiting
+                && $0.waitKind != .permissionPrompt
+                && now.timeIntervalSince($0.lastActiveAt) >= waitingSettleInterval
+        }
+    }
+
     private let liveSource: (any AgentEventStreaming)?
     private let demoSource: (any AgentEventStreaming)?
     private let persistence: StatePersistence?
@@ -221,6 +240,11 @@ final class VivariumStore {
         pendingEvents.removeFirst(min(64, pendingEvents.count))
         let output = EcosystemEngine.advance(state, events: drained, now: now, rng: &rng)
         commit(output)
+
+        // Settle-based "waiting for you" count for the menu bar badge/pill. Assigned here (not a
+        // computed property) so it stays reactive even on ticks where the rest of state is unchanged.
+        let waiting = Self.settledWaitingCount(fish: state.fish, now: now)
+        if waiting != agentsWaitingForUser { agentsWaitingForUser = waiting }
 
         if now.timeIntervalSince(lastPeriodicSave) > 60 {
             saveNow()

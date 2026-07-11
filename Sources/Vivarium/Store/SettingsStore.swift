@@ -38,6 +38,11 @@ final class SettingsStore {
     var energyLowPower: Bool {
         didSet { defaults.set(energyLowPower, forKey: Keys.energyLowPower) }
     }
+    /// Post a local notification when an agent finishes its turn and is waiting for your input.
+    /// Opt-in: enabling it triggers the system notification-permission prompt.
+    var notifyWhenWaiting: Bool {
+        didSet { defaults.set(notifyWhenWaiting, forKey: Keys.notifyWhenWaiting) }
+    }
 
     /// Mirror of `SMAppService.mainApp.status`, kept observable so the toggle reflects changes.
     private(set) var launchAtLoginEnabled = false
@@ -54,6 +59,7 @@ final class SettingsStore {
         self.demoMode = defaults.bool(forKey: Keys.demoMode)
         self.menuBarAnimation = defaults.bool(forKey: Keys.menuBarAnimation)
         self.energyLowPower = defaults.bool(forKey: Keys.energyLowPower)
+        self.notifyWhenWaiting = defaults.bool(forKey: Keys.notifyWhenWaiting)
         refreshLaunchAtLogin()
     }
 
@@ -93,5 +99,6 @@ final class SettingsStore {
         static let demoMode = "demoMode"
         static let menuBarAnimation = "menuBarAnimation"
         static let energyLowPower = "energyLowPower"
+        static let notifyWhenWaiting = "notifyWhenWaiting"
     }
 }

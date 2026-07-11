@@ -24,6 +24,7 @@ struct SettingsStoreTests {
         #expect(settings.demoMode == false)
         #expect(settings.menuBarAnimation == false)
         #expect(settings.energyLowPower == false)
+        #expect(settings.notifyWhenWaiting == false)
     }
 
     @Test("Toggle changes persist and are re-read by a fresh store")
@@ -37,6 +38,7 @@ struct SettingsStoreTests {
         first.demoMode = true
         first.energyLowPower = true
         first.menuBarAnimation = true
+        first.notifyWhenWaiting = true
 
         let second = SettingsStore(defaults: d)
         #expect(second.providersClaudeEnabled)           // untouched → still default true
@@ -46,6 +48,7 @@ struct SettingsStoreTests {
         #expect(second.demoMode)
         #expect(second.energyLowPower)
         #expect(second.menuBarAnimation)
+        #expect(second.notifyWhenWaiting)
     }
 
     @Test("Launch-at-login is inert outside an .app bundle")
