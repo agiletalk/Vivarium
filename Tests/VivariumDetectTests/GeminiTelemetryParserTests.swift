@@ -172,6 +172,32 @@ struct GeminiTelemetryParserTests {
         #expect(sid == "sess_xyz")
     }
 
+    @Test("config event announces the session and adopts a concrete model")
+    func configStartsSession() {
+        var context = GeminiParseContext(sessionID: "sess_cfg")
+        let key = SessionKey(provider: .gemini, sessionID: "sess_cfg")
+        let events = GeminiTelemetryParser.parse(
+            record: #"{"attributes":{"event.name":"gemini_cli.config","session.id":"sess_cfg","model":"gemini-2.5-flash"}}"#,
+            context: &context, receivedAt: Self.baseReceivedAt
+        )
+        let d0 = SessionDescriptor(key: key, projectKey: "gemini", projectDisplayName: "Gemini", model: nil, startedAt: Self.baseReceivedAt)
+        var d1 = d0
+        d1.model = "gemini-2.5-flash"
+        #expect(events == [.sessionStarted(d0), .sessionUpdated(d1)])
+        #expect(context.descriptor == d1)
+    }
+
+    @Test("config model=auto announces the session but sets no model")
+    func configAutoModel() {
+        var context = GeminiParseContext(sessionID: "s")
+        let events = GeminiTelemetryParser.parse(
+            record: #"{"attributes":{"event.name":"gemini_cli.config","session.id":"s","model":"auto"}}"#,
+            context: &context, receivedAt: Self.baseReceivedAt
+        )
+        #expect(events.count == 1) // sessionStarted only
+        #expect(context.descriptor?.model == nil)
+    }
+
     @Test("Garbage lines yield zero events and count skips without crashing")
     func garbageResilience() throws {
         let text = try String(contentsOf: fixtureURL("gemini-telemetry-garbage.log"), encoding: .utf8)

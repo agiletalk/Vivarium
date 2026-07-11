@@ -211,6 +211,10 @@ public enum GeminiTelemetryParser {
         receivedAt: Date
     ) -> [AgentEvent] {
         switch eventName {
+        case "gemini_cli.config":
+            // Fires once at session startup (even with no tool use and prompts unlogged), so it is
+            // the earliest reliable "a Gemini session is live" signal — announce the fish here.
+            return handleConfig(attrs, context: &context, receivedAt: receivedAt)
         case "gemini_cli.user_prompt":
             return handleUserPrompt(attrs, context: &context, receivedAt: receivedAt)
         case "gemini_cli.tool_call":
@@ -226,6 +230,20 @@ public enum GeminiTelemetryParser {
     }
 
     // MARK: - Handlers
+
+    /// Session startup: announce the fish and adopt the configured model (ignoring the "auto"
+    /// placeholder, which is resolved to a concrete id later via `api_response`).
+    private static func handleConfig(
+        _ attrs: JSONValue,
+        context: inout GeminiParseContext,
+        receivedAt: Date
+    ) -> [AgentEvent] {
+        var events = ensureStarted(context: &context, receivedAt: receivedAt)
+        if let model = attrs["model"]?.stringValue, !model.isEmpty, model != "auto", model != "none" {
+            events += applyModel(model, context: &context)
+        }
+        return events
+    }
 
     private static func handleUserPrompt(
         _ attrs: JSONValue,
@@ -284,15 +302,18 @@ public enum GeminiTelemetryParser {
     ) -> [AgentEvent] {
         guard let model = attrs["model"]?.stringValue, !model.isEmpty else { return [] }
         var events = ensureStarted(context: &context, receivedAt: receivedAt)
-        if context.model != model {
-            context.model = model
-            if var descriptor = context.descriptor, descriptor.model != model {
-                descriptor.model = model
-                context.descriptor = descriptor
-                events.append(.sessionUpdated(descriptor))
-            }
-        }
+        events += applyModel(model, context: &context)
         return events
+    }
+
+    /// Adopts a model id into the descriptor, emitting `sessionUpdated` only on a real change.
+    private static func applyModel(_ model: String, context: inout GeminiParseContext) -> [AgentEvent] {
+        guard context.model != model else { return [] }
+        context.model = model
+        guard var descriptor = context.descriptor, descriptor.model != model else { return [] }
+        descriptor.model = model
+        context.descriptor = descriptor
+        return [.sessionUpdated(descriptor)]
     }
 
     /// The model deciding the next speaker is the user means the turn is finished → celebrate once.
