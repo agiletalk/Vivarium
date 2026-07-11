@@ -27,9 +27,20 @@ final class AquariumScene: SKScene {
     private let gradientBack = SKSpriteNode()
     private let vignette = SKSpriteNode()
     private let sandStrip = SKSpriteNode()
+    /// Silty haze that fades in with system load, drawn above the fish (a "murky water" tint).
+    private let murk = SKSpriteNode(color: NSColor(srgbRed: 0.30, green: 0.34, blue: 0.18, alpha: 1), size: .zero)
     private var godRays: [SKSpriteNode] = []
     private var bubbleColumns: [SKEmitterNode] = []
     private var plankton: SKEmitterNode?
+
+    // MARK: - System-load ambient (water current + murkiness)
+    private let loadSampler = SystemLoad()
+    /// Smoothed system CPU/thermal load, 0...1. Drives current sway amplitude and murk opacity.
+    private var systemLoad: Double = 0
+    private var loadAccumulator: TimeInterval = 0
+    /// Integrated sway phase (∫frequency dt), so a load-driven frequency change bends the rate of the
+    /// current rather than jumping its instantaneous value.
+    private var currentPhase: Double = 0
     private var reefDecor: [SKSpriteNode] = []
 
     // Entities.
@@ -114,6 +125,11 @@ final class AquariumScene: SKScene {
         vignette.alpha = 0.06
         backgroundLayer.addChild(vignette)
 
+        murk.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+        murk.zPosition = 45 // above fish/effects, below the bubble overlay
+        murk.alpha = 0
+        addChild(murk)
+
         sandStrip.color = NSColor(srgbRed: 0.62, green: 0.55, blue: 0.42, alpha: 1)
         sandStrip.anchorPoint = CGPoint(x: 0.5, y: 0)
         reefLayer.addChild(sandStrip)
@@ -179,6 +195,8 @@ final class AquariumScene: SKScene {
         gradientBack.position = center
         vignette.size = CGSize(width: width * 1.15, height: height * 1.15)
         vignette.position = center
+        murk.size = size
+        murk.position = center
 
         sandStrip.size = CGSize(width: width, height: sandHeight)
         sandStrip.position = CGPoint(x: width / 2, y: 0)
@@ -221,6 +239,9 @@ final class AquariumScene: SKScene {
         lastUpdateTime = currentTime
         guard dt > 0 else { return }
 
+        updateSystemLoad(dt: dt)
+        let current = currentVector(dt: dt)
+
         let sharkPosition: SIMD2<Double>? = shark.map { SIMD2(Double($0.position.x), Double($0.position.y)) }
 
         foodTargets.removeAll(keepingCapacity: true)
@@ -241,7 +262,8 @@ final class AquariumScene: SKScene {
                 foodTarget: foodTargets[node.fishID],
                 neighbors: neighborScratch,
                 dt: dt,
-                speedMultiplier: speedMultiplier
+                speedMultiplier: speedMultiplier,
+                current: current
             )
             let next = SteeringMath.step(node.steering, species: node.species, params: node.params, world: world, rng: &rng)
             node.apply(steering: next, dt: dt, time: currentTime)
@@ -348,6 +370,36 @@ final class AquariumScene: SKScene {
         godRaysLayer.isHidden = lowPowerMode
         bubblesLayer.isHidden = lowPowerMode
         bubblesLayer.isPaused = lowPowerMode
+        // Calm, clear water in low-power mode: hide the murk and (via currentVector) still the current.
+        murk.isHidden = lowPowerMode
+    }
+
+    /// Samples system load every ~2 s (piggybacking the render loop, so it only runs while visible),
+    /// smooths it, and fades the murk overlay toward it. Skipped entirely in low-power mode (the murk
+    /// is already hidden by `applyEffectBudget`), so no mach syscall or SKAction runs while idling.
+    private func updateSystemLoad(dt: TimeInterval) {
+        guard !lowPowerMode else { loadAccumulator = 0; return }
+        loadAccumulator += dt
+        guard loadAccumulator >= 2 else { return }
+        loadAccumulator = 0
+        let raw = loadSampler.sample()
+        systemLoad += (raw - systemLoad) * 0.5
+        murk.run(.fadeAlpha(to: CGFloat(systemLoad * 0.30), duration: 1.5), withKey: "murk")
+    }
+
+    /// A gentle horizontal sway (with a slight vertical wobble) whose amplitude and speed grow with
+    /// system load — calm at idle, choppy under heavy CPU/thermal load. Zero in low-power mode.
+    /// Phase is integrated (not `time * frequency`) so amplitude/frequency steps never snap the value.
+    private func currentVector(dt: TimeInterval) -> SIMD2<Double> {
+        let load = lowPowerMode ? 0 : systemLoad
+        guard load > 0.01 else { return .zero }
+        let amplitude = load * 45
+        let frequency = 0.4 + load * 1.1
+        currentPhase += frequency * dt
+        return SIMD2(
+            sin(currentPhase) * amplitude,
+            sin(currentPhase * 0.6 + 1.3) * amplitude * 0.25
+        )
     }
 
     // MARK: - Events

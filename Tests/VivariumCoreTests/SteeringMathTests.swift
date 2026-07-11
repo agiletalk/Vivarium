@@ -112,6 +112,22 @@ struct SteeringMathTests {
         #expect(flipTime <= 0.5)
     }
 
+    @Test("An ambient current advects the fish by current*dt on top of steering")
+    func currentAdvects() {
+        let params = SpeciesMotionParams.params(for: .whale)
+        func run(current: SIMD2<Double>) -> SIMD2<Double> {
+            var rng = SplitMix64(seed: 42)
+            var state = FishSteeringState(position: SIMD2(600, 370), rng: &rng)
+            let world = WorldInputs(bounds: Self.bounds, dt: Self.dt, current: current)
+            state = SteeringMath.step(state, species: .whale, params: params, world: world, rng: &rng)
+            return state.position
+        }
+        // Same seed → identical steering; the only difference is the advection term.
+        let delta = run(current: SIMD2(60, 0)) - run(current: .zero)
+        #expect(abs(delta.x - 60 * Self.dt) < 1e-9)
+        #expect(abs(delta.y) < 1e-9)
+    }
+
     @Test("Same seed produces an identical 1000-step trajectory")
     func determinism() {
         func run() -> [FishSteeringState] {

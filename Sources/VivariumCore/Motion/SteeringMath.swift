@@ -56,6 +56,9 @@ public struct WorldInputs: Sendable {
     public var dt: Double
     /// Fatigue/night factor scaling the speed cap, 0.3...1.0.
     public var speedMultiplier: Double
+    /// Ambient water current (pt/s) that advects every fish. The scene scales and sways this by
+    /// system load, so a busy machine makes the water visibly choppier.
+    public var current: SIMD2<Double>
 
     public init(
         bounds: MotionBounds,
@@ -63,7 +66,8 @@ public struct WorldInputs: Sendable {
         foodTarget: SIMD2<Double>? = nil,
         neighbors: [SIMD2<Double>] = [],
         dt: Double,
-        speedMultiplier: Double = 1.0
+        speedMultiplier: Double = 1.0,
+        current: SIMD2<Double> = .zero
     ) {
         self.bounds = bounds
         self.sharkPosition = sharkPosition
@@ -71,6 +75,7 @@ public struct WorldInputs: Sendable {
         self.neighbors = neighbors
         self.dt = dt
         self.speedMultiplier = speedMultiplier
+        self.current = current
     }
 }
 
@@ -142,6 +147,9 @@ public enum SteeringMath {
         let steering = limited(desired - next.velocity, to: params.maxForce)
         next.velocity = limited(next.velocity + steering * dt, to: params.maxSpeed * world.speedMultiplier)
         next.position += next.velocity * dt
+        // Ambient current advects the fish (independent of its own steering), so a strong current
+        // visibly buffets the school; the fish keep steering and swim back against it.
+        next.position += world.current * dt
 
         // Safety: never leave the swim area.
         next.position.x = min(max(next.position.x, world.bounds.minX), world.bounds.maxX)
