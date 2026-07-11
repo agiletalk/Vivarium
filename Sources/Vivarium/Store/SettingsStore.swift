@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import ServiceManagement
+import VivariumDetect
 
 /// User preferences, backed by `UserDefaults`. UI-only surface for the app shell; the store owns
 /// runtime truth. Launch-at-login is delegated to `SMAppService` and only functions when we run
@@ -19,6 +20,14 @@ final class SettingsStore {
     }
     var providersOpencodeEnabled: Bool {
         didSet { defaults.set(providersOpencodeEnabled, forKey: Keys.providersOpencodeEnabled) }
+    }
+    /// Gemini is opt-in (default off): enabling it writes a telemetry block into `~/.gemini/settings.json`
+    /// so the CLI emits the local log the monitor reads. Applies on the next Vivarium launch.
+    var providersGeminiEnabled: Bool {
+        didSet {
+            defaults.set(providersGeminiEnabled, forKey: Keys.providersGeminiEnabled)
+            if providersGeminiEnabled { GeminiTelemetryConfigurator.enableTelemetry() }
+        }
     }
     var demoMode: Bool {
         didSet { defaults.set(demoMode, forKey: Keys.demoMode) }
@@ -41,6 +50,7 @@ final class SettingsStore {
         self.providersCodexEnabled = defaults.object(forKey: Keys.providersCodexEnabled) as? Bool ?? true
         self.providersCopilotEnabled = defaults.object(forKey: Keys.providersCopilotEnabled) as? Bool ?? true
         self.providersOpencodeEnabled = defaults.object(forKey: Keys.providersOpencodeEnabled) as? Bool ?? true
+        self.providersGeminiEnabled = defaults.object(forKey: Keys.providersGeminiEnabled) as? Bool ?? false
         self.demoMode = defaults.bool(forKey: Keys.demoMode)
         self.menuBarAnimation = defaults.bool(forKey: Keys.menuBarAnimation)
         self.energyLowPower = defaults.bool(forKey: Keys.energyLowPower)
@@ -79,6 +89,7 @@ final class SettingsStore {
         static let providersCodexEnabled = "providersCodexEnabled"
         static let providersCopilotEnabled = "providersCopilotEnabled"
         static let providersOpencodeEnabled = "providersOpencodeEnabled"
+        static let providersGeminiEnabled = "providersGeminiEnabled"
         static let demoMode = "demoMode"
         static let menuBarAnimation = "menuBarAnimation"
         static let energyLowPower = "energyLowPower"

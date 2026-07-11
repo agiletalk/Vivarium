@@ -124,6 +124,47 @@ struct TailReaderTests {
         #expect(reader.offset == 13)
     }
 
+    @Test("seedNearEnd(backscanBytes: 0) parks at EOF and keeps the next appended line")
+    func seedAtEofKeepsNextLine() throws {
+        let dir = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let file = dir.appendingPathComponent("tail.log")
+        try Data("existing\n".utf8).write(to: file)
+
+        let reader = TailReader(url: file)
+        #expect(try reader.seedNearEnd(backscanBytes: 0) == []) // history discarded, positioned at EOF
+        #expect(reader.offset == 9)
+
+        try append("brand-new\n", to: file)
+        // Regression: seeding at EOF must not arm resync, or this first line would be dropped.
+        #expect(try reader.drainNewLines() == ["brand-new"])
+        #expect(reader.didResetOnLastDrain == false)
+    }
+
+    @Test("didResetOnLastDrain flags an in-place truncation, then clears")
+    func resetFlagOnTruncation() throws {
+        let dir = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let file = dir.appendingPathComponent("rot.log")
+        try Data("hello\nworld\n".utf8).write(to: file)
+
+        let reader = TailReader(url: file)
+        #expect(try reader.drainNewLines() == ["hello", "world"])
+        #expect(reader.didResetOnLastDrain == false)
+
+        let handle = try FileHandle(forWritingTo: file)
+        try handle.truncate(atOffset: 0)
+        try handle.write(contentsOf: Data("hi\n".utf8))
+        try handle.close()
+
+        #expect(try reader.drainNewLines() == ["hi"])
+        #expect(reader.didResetOnLastDrain == true)
+
+        try append("more\n", to: file)
+        #expect(try reader.drainNewLines() == ["more"])
+        #expect(reader.didResetOnLastDrain == false)
+    }
+
     @Test("Deleted file throws fileVanished")
     func fileVanished() throws {
         let dir = try makeTempDir()

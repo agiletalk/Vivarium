@@ -6,13 +6,14 @@
 
 ## 무엇을 감지하나
 
-터미널·로그를 안 봐도 지금 어떤 에이전트가 무슨 일을 하는지 한눈에 보입니다. 리치 파일/DB 소스 4가지에 프로세스 스캔을 더해 활동을 읽습니다(모두 로컬 파일/프로세스 — 네트워크 전송 없음):
+터미널·로그를 안 봐도 지금 어떤 에이전트가 무슨 일을 하는지 한눈에 보입니다. 여러 로컬 소스에서 활동을 읽습니다(모두 로컬 파일/프로세스 — 네트워크 전송 없음):
 
 - **Claude Code** — `~/.claude/projects/**/*.jsonl` 트랜스크립트를 증분 테일링. 도구 사용, 상태, 모델, 서브에이전트 스폰, 테스트 실패까지 읽어 프로젝트별로 물고기에 매핑.
 - **Codex CLI** — `~/.codex/sessions/**/rollout-*.jsonl` 롤아웃 파싱.
 - **Copilot CLI** — `~/.copilot/session-state/*.jsonl` 세션 파일을 증분 테일링. 도구 실행 시작/완료, 모델, 테스트 판정, 대기 상태까지 추출하는 리치 소스.
 - **OpenCode** — 이벤트 소싱된 SQLite 저장소(`~/.local/share/opencode/opencode.db`의 `event`/`event_sequence` 테이블)를 2초 주기로 읽기 전용 폴링. 시퀀스 커서로 신규 이벤트만 소비하는 리치 소스.
-- **프로세스 스캔** — `ps` 기반 CPU/프로세스 감지. 전용 세션 소스가 없는 **Gemini·Cursor**의 활동 여부(존재)와, 라이브 세션 파일이 잡히기 전 **Copilot 폴백**에만 사용. OpenCode는 리치 SQLite 소스가 있어 프로세스 스캔에서 제외됩니다.
+- **Gemini CLI** — 기본으로는 트랜스크립트를 남기지 않지만, 설정에서 Gemini 감지를 켜면 로컬 OpenTelemetry 로그(`~/.gemini/settings.json`의 telemetry `outfile`)를 테일링하는 리치 소스가 됩니다. `session.id`로 세션을 나누고 `gemini_cli.tool_call`·`api_response`·`next_speaker_check`에서 도구 활동·모델·턴 완료를 읽습니다. (opt-in · 유효한 Gemini 로그인 필요 · [설정](#설정) 참고)
+- **프로세스 스캔** — `ps` 기반 CPU/프로세스 감지. 전용 세션 소스가 없는 **Cursor**(및 텔레메트리를 켜지 않은 Gemini)의 활동 여부(존재)와, 라이브 세션 파일이 잡히기 전 **Copilot 폴백**에 사용. 리치 세션 소스가 있는 프로바이더는 실제 세션이 잡히면 프로세스 스캔에서 자동 억제됩니다.
 
 ## 종 & 성격
 
@@ -25,7 +26,7 @@
 | OpenCode | 🐬 돌고래 | 넓게 탐색, 빠른 유영 |
 | Copilot | 🐢 바다거북 | 느긋하게 유영 |
 
-> Gemini·Cursor는 프로세스 스캔 기반이라 **활동 여부(존재)만** 물고기로 표시되고, 세부 도구 활동·생각 풍선은 리치 소스(Claude·Codex·Copilot·OpenCode)에서만 나타납니다. 위협 시 도망(상어 회피)은 종 구분 없이 공통이며, 종별 크기 변화 연출은 없습니다.
+> Cursor(그리고 텔레메트리를 켜지 않은 Gemini)는 프로세스 스캔 기반이라 **활동 여부(존재)만** 물고기로 표시됩니다. 세부 도구 활동·생각 풍선은 리치 소스(Claude·Codex·Copilot·OpenCode, 그리고 감지를 켠 Gemini)에서만 나타납니다. 위협 시 도망(상어 회피)은 종 구분 없이 공통이며, 종별 크기 변화 연출은 없습니다.
 
 ## 생태계 요소
 
@@ -44,6 +45,7 @@
 메뉴바 아이콘 → Settings에서:
 
 - **프로바이더별 감지 토글** — Claude·Codex·Copilot·OpenCode 감지를 각각 켜고 끔(다음 실행 시 적용)
+- **Gemini 감지** — 기본 꺼짐(opt-in). 켜면 `~/.gemini/settings.json`에 로컬 텔레메트리(`enabled`/`target:local`/`otlpEndpoint:""`/`outfile`/`logPrompts:true`)를 기록해 Gemini 활동을 읽을 수 있게 합니다. 기존 `outfile`이 있으면 재사용(다른 소비자와 공존), 다음 실행 시 적용
 - **저전력 모드** — 렌더를 30fps로 캡하고 앰비언트 이펙트(버블·갓레이·야간 플랑크톤)를 꺼 GPU/배터리 절감
 - **로그인 시 실행** — 로그인 항목 등록(`.app` 번들로 실행될 때만 동작)
 - **메뉴바 아이콘 애니메이션** — 에이전트 활동 중 아이콘에 은은한 펄스
@@ -57,7 +59,7 @@ Sources/
 ├── VivariumCore/    순수 시뮬레이션(Foundation만): 모델, 생태계 엔진(순수 함수 advance),
 │                    조향 수학(SteeringMath), 업적, 페르시스턴스, 데모 스크립트
 ├── VivariumDetect/  감지 레이어: TailReader + FSEvents, Claude/Codex/Copilot 파서 +
-│                    OpenCode SQLite 세션 모니터, 프로세스 스캐너,
+│                    OpenCode SQLite · Gemini 텔레메트리 세션 모니터, 프로세스 스캐너,
 │                    DetectionCoordinator(→ AsyncStream<AgentEvent>)
 └── Vivarium/        실행 타깃: NSStatusItem + NSPopover 앱 셸(AppKit, AppDelegate 소유;
                      MenuBarExtra 미사용), SwiftUI 뷰, SpriteKit 씬
@@ -65,7 +67,7 @@ Sources/
 
 - **의미 상태(스토어)와 연속 모션(SpriteKit)을 분리.** 스토어는 적응형 시맨틱 틱(활성 시 2Hz/500ms, 유휴 시 0.2Hz/5s)으로 "누가 무슨 상태인지"만 관리하고, 씬은 60fps로 Reynolds 조향 기반 유영을 그립니다. 프로토타입의 뚝뚝 끊기던 1초 틱 이동 문제를 없앰.
 - **전력 효율** — 창이 닫히거나 가려지면 씬을 완전히 정지(0% GPU). 저전력 모드에선 30fps 캡 + 앰비언트 이펙트 제거. 메뉴바 팝오버는 라이브 SpriteView가 아닌 순수 SwiftUI 요약.
-- **샌드박스 없음** — `~/.claude`·`~/.codex`·`~/.copilot` 및 `~/.local/share/opencode/opencode.db`(SQLite) 읽기와 `ps` 스캔이 필요. TCC 프롬프트나 Full Disk Access 불필요(홈 하위 dot 디렉터리).
+- **샌드박스 없음** — `~/.claude`·`~/.codex`·`~/.copilot`·`~/.gemini`(텔레메트리 로그) 및 `~/.local/share/opencode/opencode.db`(SQLite) 읽기와 `ps` 스캔이 필요. TCC 프롬프트나 Full Disk Access 불필요(홈 하위 dot 디렉터리).
 - 외부 의존성 0.
 
 ## 빌드 & 실행

@@ -1,0 +1,5 @@
+not json at all
+{"attributes":{"event.name":"gemini_cli.config","session.id":"x"}}
+{"attributes":{"session.id":"y","foo":"bar"}}
+{"not":"an event"}
+42

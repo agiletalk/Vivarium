@@ -8,6 +8,10 @@ public enum TailError: Error {
 public final class TailReader {
     public private(set) var offset: UInt64 = 0
 
+    /// True when the most recent `drainNewLines()` reset the cursor to 0 (in-place truncation or
+    /// file replacement). Lets a record-reassembling caller discard stale buffered state.
+    public private(set) var didResetOnLastDrain = false
+
     /// Lines whose bytes weren't valid UTF-8, skipped silently.
     private(set) var skippedInvalidLineCount = 0
 
@@ -39,6 +43,7 @@ public final class TailReader {
     /// (size < offset → reset to 0), replacement (inode change → reopen from 0), and deletion
     /// (throws `TailError.fileVanished`).
     public func drainNewLines() throws -> [String] {
+        didResetOnLastDrain = false
         let size = try prepareFile()
         return try readLines(upTo: size)
     }
@@ -52,8 +57,10 @@ public final class TailReader {
         isResyncing = false
         let back = UInt64(max(0, backscanBytes))
         offset = size > back ? size - back : 0
-        if offset > 0 {
-            // Mid-file start: everything up to the first newline is (part of) a line we can't trust.
+        if offset > 0 && offset < size {
+            // Started strictly mid-file: everything up to the first newline is (part of) a line we
+            // can't trust. When offset == size (e.g. backscanBytes == 0) we're parked at a clean EOF
+            // boundary — arming resync there would drop the first subsequently appended line.
             isResyncing = true
         }
         return try readLines(upTo: size)
@@ -113,6 +120,7 @@ public final class TailReader {
         offset = 0
         remainder.removeAll()
         isResyncing = false
+        didResetOnLastDrain = true
     }
 
     private func closeFile() {

@@ -93,6 +93,13 @@ private struct ProviderSettingsTab: View {
                 Toggle("Detect OpenCode sessions", isOn: $settings.providersOpencodeEnabled)
                 DirectoryStatus(path: "~/.local/share/opencode", exists: Self.directoryExists("~/.local/share/opencode"))
             }
+            Section("Gemini") {
+                Toggle("Detect Gemini sessions", isOn: $settings.providersGeminiEnabled)
+                DirectoryStatus(path: "~/.gemini", exists: Self.directoryExists("~/.gemini"))
+                Text("Enabling turns on Gemini's local telemetry in ~/.gemini/settings.json (with prompt logging) so activity can be read. Rich detection needs a valid Gemini login.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
             Section {
                 Text("Provider changes apply on next launch.")
                     .font(.footnote)

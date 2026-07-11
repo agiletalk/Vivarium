@@ -36,6 +36,7 @@ final class VivariumAppDelegate: NSObject, NSApplicationDelegate {
         if settings.providersCodexEnabled { enabledProviders.insert(.codex) }
         if settings.providersCopilotEnabled { enabledProviders.insert(.copilot) }
         if settings.providersOpencodeEnabled { enabledProviders.insert(.opencode) }
+        if settings.providersGeminiEnabled { enabledProviders.insert(.gemini) }
 
         let liveSource: (any AgentEventStreaming)? = forceDemo
             ? nil

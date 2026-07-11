@@ -21,7 +21,7 @@ public actor DetectionCoordinator: AgentEventStreaming {
     private var processGoneSince: [AgentProvider: Date] = [:]
     /// How long a file-backed provider must show zero processes before its sessions are ended.
     private let processGoneGrace: TimeInterval = 45
-    private static let fileBacked: [AgentProvider] = [.claude, .codex, .copilot, .opencode]
+    private static let fileBacked: [AgentProvider] = [.claude, .codex, .copilot, .opencode, .gemini]
 
     public init(
         sources: [any AgentEventStreaming],
@@ -34,9 +34,11 @@ public actor DetectionCoordinator: AgentEventStreaming {
     }
 
     /// Builds the standard coordinator: Claude + Codex + Copilot transcript monitors, the OpenCode
-    /// SQLite monitor, and process scanning. Only the providers in `enabledProviders` get a session
-    /// source (defaults to all); a disabled provider is simply never watched. Process scanning still
-    /// runs, but its coarse gemini/cursor/copilot fallback is unaffected by this file-source filter.
+    /// SQLite monitor, the Gemini telemetry monitor, and process scanning. Only the providers in
+    /// `enabledProviders` get a session source (defaults to all); a disabled provider is simply never
+    /// watched. Process scanning still runs, but its coarse gemini/cursor/copilot fallback is
+    /// unaffected by this file-source filter — a provider with a live session source is suppressed
+    /// there at runtime once its first session appears.
     public static func standard(
         enabledProviders: Set<AgentProvider> = Set(AgentProvider.allCases)
     ) -> DetectionCoordinator {
@@ -52,6 +54,9 @@ public actor DetectionCoordinator: AgentEventStreaming {
         }
         if enabledProviders.contains(.opencode) {
             sources.append(OpenCodeSessionMonitor(config: .standard()))
+        }
+        if enabledProviders.contains(.gemini) {
+            sources.append(GeminiTelemetryMonitor(config: .standard()))
         }
         return DetectionCoordinator(sources: sources)
     }
