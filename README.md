@@ -12,7 +12,9 @@
 - **Codex CLI** — `~/.codex/sessions/**/rollout-*.jsonl` 롤아웃 파싱.
 - **Copilot CLI** — `~/.copilot/session-state/*.jsonl` 세션 파일을 증분 테일링. 도구 실행 시작/완료, 모델, 테스트 판정, 대기 상태까지 추출하는 리치 소스.
 - **OpenCode** — 이벤트 소싱된 SQLite 저장소(`~/.local/share/opencode/opencode.db`의 `event`/`event_sequence` 테이블)를 2초 주기로 읽기 전용 폴링. 시퀀스 커서로 신규 이벤트만 소비하는 리치 소스.
-- **Gemini CLI** — 기본으로는 트랜스크립트를 남기지 않지만, 설정에서 Gemini 감지를 켜면 로컬 OpenTelemetry 로그(`~/.gemini/settings.json`의 telemetry `outfile`)를 테일링하는 리치 소스가 됩니다. `session.id`로 세션을 나누고 `gemini_cli.tool_call`·`api_response`·`next_speaker_check`에서 도구 활동·모델·턴 완료를 읽습니다. (opt-in · 유효한 Gemini 로그인 필요 · [설정](#설정) 참고)
+- **Gemini CLI** — 기본으로는 트랜스크립트를 남기지 않지만, 설정에서 Gemini 감지를 켜면 로컬 OpenTelemetry 로그(`~/.gemini/settings.json`의 telemetry `outfile`)를 테일링하는 리치 소스가 됩니다. `session.id`로 세션을 나누고 `gemini_cli.config`(세션 시작)·`gemini_cli.tool_call`·`api_response`·`next_speaker_check`에서 세션·도구 활동·모델·턴 완료를 읽습니다. (opt-in · [설정](#설정) 참고)
+
+  > ⚠️ **인증 안내** — Google은 **2026-06-18**부로 표준 `gemini` CLI의 **무료 로그인**(Gemini Code Assist for individuals 및 AI Pro/Ultra OAuth)을 종료하고 [Antigravity](https://antigravity.google)로 이관했습니다. 이제 `gemini` CLI는 **API 키(`GEMINI_API_KEY`)** 또는 조직의 **Code Assist Standard/Enterprise** 인증에서만 동작하며, 그런 세션만 위 텔레메트리 로그를 생성합니다. (Antigravity는 로그 형식이 다른 별개 제품이라 여기서 감지하지 않습니다.)
 - **프로세스 스캔** — `ps` 기반 CPU/프로세스 감지. 전용 세션 소스가 없는 **Cursor**(및 텔레메트리를 켜지 않은 Gemini)의 활동 여부(존재)와, 라이브 세션 파일이 잡히기 전 **Copilot 폴백**에 사용. 리치 세션 소스가 있는 프로바이더는 실제 세션이 잡히면 프로세스 스캔에서 자동 억제됩니다.
 
 ## 종 & 성격
